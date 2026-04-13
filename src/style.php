@@ -1,6 +1,6 @@
 <?php
 
-enum Color {
+enum Colors {
     case RED;
     case BLUE;
     case YELLOW;
@@ -9,17 +9,17 @@ enum Color {
 }
 
 class Elements {
-    public static function RowBox(string $text, Color $color) {
+    public static function RowBox(string $text, Colors $color) {
         switch ($color) {
-            case Color::RED:
+            case Colors::RED:
                 return '<div class="bx box-red">'.$text.'</div>';
-            case Color::GREEN:
+            case Colors::GREEN:
                 return '<div class="bx box-green">'.$text.'</div>';
-            case Color::YELLOW:
+            case Colors::YELLOW:
                 return '<div class="bx box-yellow">'.$text.'</div>';
-            case Color::ORANGE:
+            case Colors::ORANGE:
                 return '<div class="bx box-orange">'.$text.'</div>';
-            case Color::BLUE:
+            case Colors::BLUE:
                 return '<div class="bx box-blue">'.$text.'</div>';
                 
         }

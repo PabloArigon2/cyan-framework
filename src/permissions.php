@@ -42,10 +42,10 @@ final class Permissions {
         if ($sql->validQuery()) 
             return [ "Status" => false, "Mensagem" => "O Grupo ".$name." já existe! Por favor, escolha outro nome!", "Erro" => "" ];
 
-        $reference = HashStr();
+        $reference = \Security::Hash();
 
         $sql = \Database::Query("INSERT INTO grupos (parent, reference, nome, descricao, permissions) VALUES(?,?,?,?,?)", [
-            $parent, $reference, $name, $desc, \Encrypt(json_encode($perms))
+            $parent, $reference, $name, $desc, \Security::Encrypt(json_encode($perms))
         ]);
 
         if ($sql->validExecute()) {
@@ -61,10 +61,10 @@ final class Permissions {
         if ($sql->validQuery()) 
             return [ "Status" => false, "Mensagem" => "O Grupo ".$name." já existe! Por favor, escolha outro nome!", "Erro" => "" ];
 
-        $reference = HashStr();
+        $reference = \Security::Hash();
 
         $sql = \Database::Query("UPDATE grupos SET nome = ?, descricao = ?, permissions = ? WHERE id = ?", [
-            $name, $desc, \Encrypt(json_encode($perms)), $id
+            $name, $desc, \Security::Encrypt(json_encode($perms)), $id
         ]);
 
         if ($sql->validExecute()) {

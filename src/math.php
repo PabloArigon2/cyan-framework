@@ -48,19 +48,7 @@ class Math {
     }
 
     public static function formatCurrency($value, $cipher = true, $decimal = 2) {
-        // Remove qualquer formatação existente
-
-        if (gettype($value) == "string") {
-            $value = str_replace(' ', '', $value);
-        }
-
-        $val = $value;
-        if (gettype($value) == "string") {
-            $val = Math::parseDouble($value);
-        }
-
-        // Formata com 2 casas decimais, separador de milhares e decimal
-        return ($cipher ? "R$ " : "").number_format($val, $decimal, ',', '.');
+        return Formatter::FormatValor($value); // Consolidado no Formatter
     }
 
     public static function formatGrow($v) {

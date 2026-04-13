@@ -448,10 +448,8 @@ class Action {
             $appSlug = Utils::Env('APP_SLUG') ?? 'cyan';
             $fpath = preg_replace('/^.*' . preg_quote($appSlug, '/') . '[\/\\\\]/', '', $path);
 
-            if (!$auth['Auth'] or ($auth['Auth'] == true and !$auth['IsLogin'] and empty($auth['Tenant']))) {
-                if (!str_contains(strtolower($path), "/cyan/")) {
-                    ApiResponse::GetCallback()->setStatus(0)->setError("tenant not provided")->run();
-                }
+            if (empty($auth['Tenant'])) {
+                ApiResponse::GetCallback()->setStatus(0)->setError("Tenant context missing for action: $action")->setMensagem("Requisição inválida: contexto não identificado.")->run();
             }
 
             $body = [];

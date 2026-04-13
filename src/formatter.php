@@ -38,11 +38,7 @@ final class Formatter {
     // --- Datas e Tempo ---
 
     public static function CalcularAnos($data) {
-        if (empty($data)) return 0;
-        $d1 = new \DateTime($data);
-        $d2 = new \DateTime(date("Y-m-d"));
-        $diff = $d2->diff($d1);
-        return $diff->y;
+        return Math::getAge($data);
     }
 
     public static function FormatarDuracao($segundos) {
@@ -65,8 +61,7 @@ final class Formatter {
     // --- Crescimento / Percentuais ---
 
     public static function GetCrescimento($val1, $val2) {
-        if ($val1 == 0) return 0;
-        return (($val2 - $val1) / $val1) * 100;
+        return Math::calculateGrow($val1, $val2);
     }
 
     // --- Documentos Brasileiros ---
@@ -93,35 +88,7 @@ final class Formatter {
     }
 
     public static function ValidarCPF($number) {
-
-        $cpf = preg_replace('/[^0-9]/', "", $number);
-
-        if (strlen($cpf) != 11 || preg_match('/([0-9])\1{10}/', $cpf)) {
-            return false;
-        }
-
-        $number_quantity_to_loop = [9, 10];
-
-        foreach ($number_quantity_to_loop as $item) {
-
-            $sum = 0;
-            $number_to_multiplicate = $item + 1;
-
-            for ($index = 0; $index < $item; $index++) {
-
-                $sum += $cpf[$index] * ($number_to_multiplicate--);
-
-            }
-
-            $result = (($sum * 10) % 11);
-
-            if ($cpf[$item] != $result) {
-                return false;
-            }
-
-        }
-
-        return true;
+        return Validate::CPF($number);
     }
 
     public static function FormatarCnpj($text) {

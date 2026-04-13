@@ -1,0 +1,86 @@
+<?php
+
+final class Http {
+    public static function Request($url, $method, $headers = [], $body = []) {
+        $curl = curl_init();
+        curl_setopt_array($curl, [
+            CURLOPT_URL => $url,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_ENCODING => "",
+            CURLOPT_MAXREDIRS => 10,
+            CURLOPT_TIMEOUT => 30,
+            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+            CURLOPT_CUSTOMREQUEST => $method,
+            CURLOPT_HTTPHEADER => $headers
+        ]);
+
+        if (!empty($body) and gettype($body) == "array") {
+            curl_setopt($curl, CURLOPT_POSTFIELDS, json_encode($body));
+        }
+
+        $response = curl_exec($curl);
+        $code = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+        curl_close($curl);
+
+        return [
+            'Status' => ($code >= 200 and $code < 300) ? 1 : 0,
+            'Body' => json_decode($response, true)
+        ];
+    }
+
+    public static function Response($headers, $result, $code = 200) {
+        foreach($headers as $header => $value) { header($header.": ".$value); }
+        http_response_code($code);
+        header("Server: CYANTECH/SERVER v1");
+        header("Access-Control-Allow-Origin: " . (Utils::Env('CORS_ORIGINS') ?? '*'));
+
+        if (isset($headers['Content-Type']) and $headers['Content-Type'] == "application/json") {
+            echo json_encode($result);
+        } else {
+            echo is_array($result) ? json_encode($result) : $result;
+        }
+        exit();
+    }
+
+    public static function GetHeader($header) {
+        $headers = getallheaders();
+        return $headers[$header] ?? null;
+    }
+
+    public static function GetUserIP() {
+        return $_SERVER['HTTP_X_FORWARDED_FOR'] 
+            ?? $_SERVER['HTTP_CLIENT_IP'] 
+            ?? $_SERVER['REMOTE_ADDR'] 
+            ?? '0.0.0.0';
+    }
+}
+
+final class Url {
+    public static function getDirLink() {
+        $baseLink = self::getPageLink();
+        $requestUri = $_SERVER['REQUEST_URI'] ?? '';
+        $appSlug = Utils::Env('APP_SLUG') ?? '';
+
+        $parts = explode('/', trim($requestUri, '/'));
+        if (!empty($appSlug) && isset($parts[0]) && $parts[0] === $appSlug) { array_shift($parts); }
+
+        $dir = $parts[0] ?? '';
+        return !empty($dir) ? $baseLink . '/' . $dir : $baseLink;
+    }
+
+    public static function getPageLink() {
+        $protocol = (empty($_SERVER['HTTPS']) ? 'http' : 'https');
+        $url = $_SERVER['SERVER_NAME'] ?? 'localhost';
+        $appSlug = Utils::Env('APP_SLUG') ?? '';
+
+        if (!empty($appSlug) && ($url == "localhost" || $url == "127.0.0.1")) {
+            $url .= "/" . $appSlug;
+        }
+        return $protocol . "://" . $url;
+    }
+
+    public static function getFullUrl() {
+        $protocol = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] == 'on') ? 'https' : 'http';
+        return $protocol . '://' . ($_SERVER['HTTP_HOST'] ?? '') . ($_SERVER['REQUEST_URI'] ?? '');
+    }
+}

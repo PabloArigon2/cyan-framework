@@ -191,5 +191,10 @@ final class FileStreamer
         readfile($absolutePath);
         exit;
     }
+
+    public static function Delete(string $path) {
+        if (file_exists($path))
+            unset($path);
+    }
 }
 ?>

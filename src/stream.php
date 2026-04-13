@@ -40,10 +40,6 @@ class Stream {
             $finfo = new finfo(FILEINFO_MIME_TYPE);
             $mime = $finfo->file($this->Path); // Usa ->file() em vez de ->buffer()
             $this->DetectedExt = $this->MapMimeToExt($mime);
-            
-            // Para debug - veja o que está sendo detectado
-            error_log("MIME detectado: $mime");
-            error_log("Extensão: " . ($this->DetectedExt ?? 'NULL'));
         }
 
         // Renomeia com a extensão correta (ou 'bin' se não detectou)

@@ -147,9 +147,6 @@ final class Router {
         $view = self::$viewContext;
         $routeInfo = self::$routeInfo['info'] ?? null;
 
-        // Retrocompatibilidade: ainda injeta as globals antigas por segurança de transição
-        global $user, $currentPanel, $link, $dir;
-
         include self::$routeInfo['path'];
     }
 

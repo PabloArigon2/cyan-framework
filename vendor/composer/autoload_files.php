@@ -7,6 +7,12 @@ $baseDir = dirname($vendorDir);
 
 return array(
     'dc1f02579e53085b256b7b813e7509e6' => $baseDir . '/src/utils.php',
+    '0a3698f790b471f83f9c56b9252faac8' => $baseDir . '/src/auth.php',
+    'e2297a53943516b9fd4e25093f71a736' => $baseDir . '/src/http.php',
+    '60126043ab5dcc8797fd4b715d7be07f' => $baseDir . '/src/geodata.php',
+    '860eb082bef145e37296ba09b38b352b' => $baseDir . '/src/str.php',
+    'bc98a3881b6f137a8cd670c18b98a800' => $baseDir . '/src/color.php',
+    'a8cc58f21e61cb8d10e149f16a9ccec1' => $baseDir . '/src/devices.php',
     '15a9c498d7894b5795d0f641044666dd' => $baseDir . '/src/formatter.php',
     '4f134003aad5e69e1c230c0a7a139445' => $baseDir . '/src/math.php',
     'b13a053435be6adf798b0a7a61f1e75d' => $baseDir . '/src/locale.php',

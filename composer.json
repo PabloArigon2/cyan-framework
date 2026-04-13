@@ -12,6 +12,12 @@
         ],
         "files": [
             "src/utils.php",
+            "src/auth.php",
+            "src/http.php",
+            "src/geodata.php",
+            "src/str.php",
+            "src/color.php",
+            "src/devices.php",
             "src/formatter.php",
             "src/math.php",
             "src/locale.php",

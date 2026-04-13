@@ -90,7 +90,7 @@ class Logs {
     }
 
     public function setSuccess($result = "") {
-        if (gettype($result) == "array" or gettext($result) == "object") {
+        if (gettype($result) == "array" or gettype($result) == "object") {
             $result = json_encode($result);
         }
         else if (gettype($result) != "string") {

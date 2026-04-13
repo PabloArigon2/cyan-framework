@@ -146,6 +146,105 @@ class Database
     static $onTransaction = false;
     static ?PDO $context = null;
 
+    public static function BuildStructure($parentTypeEnum = []) {
+        $sqlUsuarios = "CREATE TABLE IF NOT EXISTS `usuarios` (
+            `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `created_at` TIMESTAMP NOT NULL DEFAULT current_timestamp(),
+            `identifier` BINARY(32) NOT NULL,
+            `member_id` VARCHAR(150) NOT NULL DEFAULT '' COLLATE 'utf8mb4_general_ci',
+            `email` BINARY(32) NOT NULL,
+            `cpf` BINARY(32) NULL DEFAULT NULL,
+            `rg` BINARY(32) NULL DEFAULT NULL,
+            `dados` BLOB NULL DEFAULT NULL,
+            `usuario` BINARY(32) NULL DEFAULT NULL,
+            `senha` VARCHAR(255) NULL DEFAULT NULL COLLATE 'utf8mb4_bin',
+            `status` ENUM('inativo','ativo','bloqueado') NOT NULL DEFAULT 'ativo' COLLATE 'utf8mb4_general_ci',
+            `ultimo_login` DATETIME NULL DEFAULT NULL,
+            `allow_access` INT(11) NOT NULL DEFAULT '1',
+            PRIMARY KEY (`id`) USING BTREE,
+            UNIQUE INDEX `identifier` (`identifier`) USING BTREE,
+            UNIQUE INDEX `email` (`email`) USING BTREE,
+            UNIQUE INDEX `member_id` (`member_id`) USING BTREE,
+            UNIQUE INDEX `cpf` (`cpf`) USING BTREE,
+            UNIQUE INDEX `rg` (`rg`) USING BTREE,
+            UNIQUE INDEX `usuario` (`usuario`) USING BTREE
+        )
+        COLLATE='utf8mb4_general_ci'
+        ENGINE=InnoDB
+        AUTO_INCREMENT=1
+        ;
+        ";
+
+        $sqlTenant = "CREATE TABLE `tenant` (
+            `id` INT(11) NOT NULL AUTO_INCREMENT,
+            `user_id` BIGINT(20) UNSIGNED NULL DEFAULT NULL,
+            `parent_id` INT(11) NOT NULL DEFAULT '0',
+            `parent_type` ENUM(".((!empty($parentTypeEnum)) ? implode(", ", $parentTypeEnum) : "empresa, none").") NOT NULL DEFAULT 'none' COLLATE 'utf8mb4_general_ci',
+            PRIMARY KEY (`id`) USING BTREE,
+            INDEX `fk_key_userid` (`user_id`) USING BTREE,
+            CONSTRAINT `fk_key_userid` FOREIGN KEY (`user_id`) REFERENCES `usuarios` (`id`) ON UPDATE CASCADE ON DELETE RESTRICT
+        )
+        COLLATE='utf8mb4_general_ci'
+        ENGINE=InnoDB
+        AUTO_INCREMENT=1
+        ;
+        ";
+
+        $sqlLogs = "CREATE TABLE `logs` (
+            `id` INT(11) NOT NULL AUTO_INCREMENT,
+            `created_at` DATETIME NOT NULL DEFAULT current_timestamp(),
+            `usuario` INT(11) NOT NULL DEFAULT '0',
+            `file` LONGTEXT NOT NULL COLLATE 'utf8mb4_general_ci',
+            `acao` LONGTEXT NOT NULL COLLATE 'utf8mb4_general_ci',
+            `message` LONGTEXT NOT NULL COLLATE 'utf8mb4_general_ci',
+            `body` LONGTEXT NOT NULL COLLATE 'utf8mb4_general_ci',
+            `body_headers` LONGTEXT NOT NULL COLLATE 'utf8mb4_general_ci',
+            `error` LONGTEXT NULL DEFAULT NULL COLLATE 'utf8mb4_general_ci',
+            `response` LONGTEXT NOT NULL COLLATE 'utf8mb4_general_ci',
+            `method` LONGTEXT NOT NULL COLLATE 'utf8mb4_general_ci',
+            `http_code` INT(11) NULL DEFAULT NULL,
+            `status` INT(11) NOT NULL DEFAULT '0',
+            PRIMARY KEY (`id`) USING BTREE
+        )
+        COLLATE='utf8mb4_general_ci'
+        ENGINE=InnoDB
+        AUTO_INCREMENT=1
+        ;
+        ";
+
+        $sqlAudit = "CREATE TABLE `logs_auditoria` (
+            `id` INT(11) NOT NULL AUTO_INCREMENT,
+            `created_at` DATETIME NULL DEFAULT current_timestamp(),
+            `usuario` INT(11) NULL DEFAULT NULL,
+            `event` LONGTEXT NULL DEFAULT NULL COLLATE 'utf8mb4_general_ci',
+            `status` INT(11) NULL DEFAULT NULL,
+            `remote_address` LONGTEXT NULL DEFAULT NULL COLLATE 'utf8mb4_general_ci',
+            `proxy_address` LONGTEXT NULL DEFAULT NULL COLLATE 'utf8mb4_general_ci',
+            `shared_address` LONGTEXT NULL DEFAULT NULL COLLATE 'utf8mb4_general_ci',
+            `parent` INT(11) NULL DEFAULT NULL,
+            PRIMARY KEY (`id`) USING BTREE
+        )
+        COLLATE='utf8mb4_general_ci'
+        ENGINE=InnoDB
+        AUTO_INCREMENT=1
+        ;
+        ";
+
+        Database::Transaction();
+        $execUsuarios = Database::Query($sqlUsuarios);
+        $execTenant = Database::Query($sqlTenant);
+        $execLogs = Database::Query($sqlLogs);
+        $execAudit = Database::Query($sqlAudit);
+
+        if (!$execUsuarios->validExecute() or !$execTenant->validExecute() or !$execLogs->validExecute() or !$execAudit->validExecute()){
+            Database::Revert();
+            $errors = [ "Usuarios" => $execUsuarios->error(), "Tenant" => $execTenant->error(), "Logs" => $execLogs->error(), "Audit" => $execAudit->error() ];
+            throw new Exception("Erro ao inicializar estrutura do banco de dados! Data: ".json_encode($errors, JSON_UNESCAPED_UNICODE));
+        }
+
+        Database::Apply();
+    }
+
     public static function Escape($val)
     {
         return self::$context ? substr(self::$context->quote($val), 1, -1) : $val;
@@ -188,9 +287,16 @@ class Database
         return self::$context;
     }
 
-    public static function Query($str, $params = [], $context = null, $tryCatch = true) : QueryResult
+    public static function Query($str, $params = [], $context = null, $tryCatch = true, $bypass = false) : QueryResult
     {
         $qr = new QueryResult([]);
+
+        if (str_contains(strtolower($str), "update") or str_contains(strtolower($str), "delete")) {
+            if (!str_contains(strtolower($str), "where") and !$bypass) {
+                $qr->SetError("[ DB LOCK ] Uma operação de escrita sem condição não pode ser executada");
+                return $qr;
+            }
+        }     
 
         if (empty($context)) $context = self::$context;
 

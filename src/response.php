@@ -50,7 +50,7 @@ class Callback {
         }
 
         if (!empty(\Action::$logs)) {
-            \logs()->setLogContinue(\Action::$logs[count(\Action::$logs) - 1])->setStatus($this->status)->setError((!empty($result['Erro'])) ? \Security::Encrypt($result['Erro']) : '')->setMessage($result['Mensagem'] ?? '')->setResponse((!empty($response)) ? \Security::Encrypt(\JSON::Encode($response)) : '')->setHttpCode($this->code)->send();
+            \Logs::Create()->setLogContinue(\Action::$logs[count(\Action::$logs) - 1])->setStatus($this->status)->setError((!empty($result['Erro'])) ? \Security::Encrypt($result['Erro']) : '')->setMessage($result['Mensagem'] ?? '')->setResponse((!empty($response)) ? \Security::Encrypt(\JSON::Encode($response)) : '')->setHttpCode($this->code)->send();
         }
 
         \Utils::Response(array("Content-Type" => $this->responseType), $result, $this->code);

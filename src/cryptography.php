@@ -6,8 +6,8 @@ class Security {
     private const CIPHER = 'AES-256-GCM';
 
     private static function GetMasterKey() {
-        $sys = env("SYSTEM_TOKEN");
-        $mst = env("MASTER_TOKEN");
+        $sys = Utils::Env("SYSTEM_TOKEN");
+        $mst = Utils::Env("MASTER_TOKEN");
         // Retorna 32 bytes binários
         return hash('sha256', "token@".$sys."&".$mst, true);
     }
@@ -28,7 +28,7 @@ class Security {
      * Gera a chave de criptografia única para um registro.
      */
     public static function Token($id, $identifier, $sep) {
-        $masterkey = env("MASTER_TOKEN");
+        $masterkey = Utils::Env("MASTER_TOKEN");
         return hash('sha256', "token#$id" . $identifier . "$sep#$masterkey", true);
     }
 
@@ -125,7 +125,7 @@ class Security {
      * Se $data for array/object, converte automaticamente em JSON.
      */
     public static function EncryptByToken($data, string $tokenEnvKey) {
-        $rawKey = env($tokenEnvKey);
+        $rawKey = Utils::Env($tokenEnvKey);
         if (empty($rawKey)) throw new \Exception("Token env key '$tokenEnvKey' não definida.");
         $key = hash('sha256', $rawKey, true);
         if (is_array($data) || is_object($data)) $data = json_encode($data, JSON_UNESCAPED_UNICODE);
@@ -137,7 +137,7 @@ class Security {
      * @param bool $asArray Se true, faz json_decode no resultado.
      */
     public static function DecryptByToken($data, string $tokenEnvKey, bool $asArray = false) {
-        $rawKey = env($tokenEnvKey);
+        $rawKey = Utils::Env($tokenEnvKey);
         if (empty($rawKey)) throw new \Exception("Token env key '$tokenEnvKey' não definida.");
         $key = hash('sha256', $rawKey, true);
         $result = self::Decrypt($data, $key);
@@ -161,13 +161,5 @@ class Security {
         return password_verify($str, $hash);
     }
 }
-
-// --- Funções-atalho globais para retrocompatibilidade ---
-
-function Encrypt($string, $key = null)   { return Security::Encrypt($string, $key); }
-function Decrypt($data, $key = null)     { return Security::Decrypt($data, $key); }
-function EncryptUI($string, $key = null) { return Security::EncryptUI($string, $key); }
-function DecryptUI($hex, $key = null)    { return Security::DecryptUI($hex, $key); }
-function HashStr($str = null)            { return Security::Hash($str); }
 
 ?>

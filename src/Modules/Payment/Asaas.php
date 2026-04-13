@@ -2,24 +2,15 @@
 
 namespace Modules\Payment;
 
-require_once "utils.php";
 
 $URL = "";
-$token = env("HMLG_ASAAS");
+$token = Utils::Env("HMLG_ASAAS");
 
 class Ambients {
     public const PROD = 0;
     public const HMLG = 1;
 }
 
-function GetAmbient() {
-    if ($_SERVER['SERVER_NAME'] != "localhost") {
-        return Ambients::PROD;
-    }
-    else {
-        return Ambients::HMLG;
-    }
-}
 
 class AsaasErrors {
     public static $NONE = -1;
@@ -67,7 +58,7 @@ class Asaas {
     private static $apiKey = '';
 
     public static function Initialize() {
-        self::$apiKey = self::GetAmbient() == Ambients::PROD ? env("ASAAS_KEY_PROD") : env("ASAAS_KEY_HMLG");
+        self::$apiKey = self::GetAmbient() == Ambients::PROD ? Utils::Env("ASAAS_KEY_PROD") : Utils::Env("ASAAS_KEY_HMLG");
     }
 
     public static function GetAmbient() {
@@ -427,7 +418,7 @@ class Cobrancas {
         $sql = \Database::Query("SELECT * FROM pagamentos WHERE id = ? OR reference = ? OR id_pagamento = ?", [
             new \Parameter("i", $id),
             new \Parameter("s", $reference),
-            new \Parameter("s", \Encrypt($paymentID))
+            new \Parameter("s", \Security::Encrypt($paymentID))
         ]);
 
         return $sql->validQuery() ? $sql->get(0) : null;

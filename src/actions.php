@@ -7,10 +7,10 @@ final class UpType {
     public const FORM = "FORM";
 }
 
-define("TEMP_PATH", sys_get_temp_dir() . "/" . (env("APP_SLUG") ?? "cyan"));
+define("TEMP_PATH", sys_get_temp_dir() . "/" . (Utils::Env("APP_SLUG") ?? "cyan"));
 
 #region CORS Middleware
-$allowedOrigins = array_filter(explode(',', env('CORS_ORIGINS') ?? '*'));
+$allowedOrigins = array_filter(explode(',', Utils::Env('CORS_ORIGINS') ?? '*'));
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
 
 if (in_array('*', $allowedOrigins) || in_array($origin, $allowedOrigins)) {
@@ -39,7 +39,7 @@ if ((str_contains(strtolower($path), (strtolower("api/".$base))) or
      !str_contains(strtolower($path), "/cadastro.php") and
      !str_contains(strtolower($path), "/auth.php") and
      !str_contains(strtolower($path), "/mobile/")) {
-    $auth = AuthenticateRequest();
+    $auth = Utils::AuthenticateRequest();
     $auth['IsLogin'] = false;
 }
 else {
@@ -130,157 +130,198 @@ if (!empty($rawInput)) {
     }
 }
 
-function parse_formdata($raw) {
-    if (empty($_SERVER["CONTENT_TYPE"]) ||
-        strpos($_SERVER["CONTENT_TYPE"], "multipart/form-data") === false) {
-        return ["Data" => [], "Files" => []];
-    }
+final class ActionHelper {
 
-    // Extrai o boundary
-    preg_match('/boundary=(.*)$/', $_SERVER['CONTENT_TYPE'], $matches);
-    if (!isset($matches[1])) return [[], []];
-    $boundary = $matches[1];
+    public static function ParseFormData($raw) {
+        if (empty($_SERVER["CONTENT_TYPE"]) ||
+            strpos($_SERVER["CONTENT_TYPE"], "multipart/form-data") === false) {
+            return ["Data" => [], "Files" => []];
+        }
 
-    // Separa os blocos pelo boundary principal
-    $blocks = preg_split("/-+$boundary/", $raw);
-    array_pop($blocks); // Remove o "--" final
+        preg_match('/boundary=(.*)$/', $_SERVER['CONTENT_TYPE'], $matches);
+        if (!isset($matches[1])) return [[], []];
+        $boundary = $matches[1];
 
-    $fields = [];
-    $files  = [];
+        $blocks = preg_split("/-+$boundary/", $raw);
+        array_pop($blocks);
 
-    foreach ($blocks as $block) {
-        if (!trim($block)) continue;
+        $fields = [];
+        $files  = [];
 
-        // Pega o cabeçalho
-        if (!preg_match('/name="([^"]+)"/', $block, $nameMatch)) continue;
-        $fullName = $nameMatch[1];
+        foreach ($blocks as $block) {
+            if (!trim($block)) continue;
 
-        // Extrai filename, se existir
-        $isFile = preg_match('/filename="([^"]*)"/', $block, $fileMatch);
-        $filename = $isFile ? $fileMatch[1] : null;
+            if (!preg_match('/name="([^"]+)"/', $block, $nameMatch)) continue;
+            $fullName = $nameMatch[1];
 
-        // Extrai corpo do campo
-        if (!preg_match("/\r\n\r\n(.*)$/s", $block, $bodyMatch)) continue;
+            $isFile = preg_match('/filename="([^"]*)"/', $block, $fileMatch);
+            $filename = $isFile ? $fileMatch[1] : null;
 
-        $value = $bodyMatch[1];
+            if (!preg_match("/\r\n\r\n(.*)$/s", $block, $bodyMatch)) continue;
 
-        // Remove CRLF no fim
-        $value = rtrim($value, "\r\n");
+            $value = $bodyMatch[1];
 
-        // Remove boundaries que vazaram dentro do valor
-        $value = preg_replace('/-{6,}WebKitFormBoundary[^\r\n]*/', '', $value);
+            $value = rtrim($value, "\r\n");
 
-        // Expande nome do campo para arrays/aninhados
-        $keys = preg_split('/(\[|\])/i', $fullName);
-        $keys = array_filter($keys, fn($k) => $k !== "");
+            $value = preg_replace('/-{6,}WebKitFormBoundary[^\r\n]*/', '', $value);
 
-        // Salva arquivo
-        if ($isFile) {
-            $ref = &$files;
+            $keys = preg_split('/(\[|\])/i', $fullName);
+            $keys = array_filter($keys, fn($k) => $k !== "");
 
+            if ($isFile) {
+                $ref = &$files;
+
+                foreach ($keys as $k) {
+                    if (!isset($ref[$k])) $ref[$k] = [];
+                    $ref = &$ref[$k];
+                }
+
+                $ref = [
+                    'filename' => $filename,
+                    'size'     => strlen($value),
+                    'content'  => $value
+                ];
+
+                continue;
+            }
+
+            $ref = &$fields;
             foreach ($keys as $k) {
                 if (!isset($ref[$k])) $ref[$k] = [];
                 $ref = &$ref[$k];
             }
 
-            $ref = [
-                'filename' => $filename,
-                'size'     => strlen($value),
-                'content'  => $value
-            ];
-
-            continue;
+            $ref = $value;
         }
 
-        // Salva campo comum
-        $ref = &$fields;
-        foreach ($keys as $k) {
-            if (!isset($ref[$k])) $ref[$k] = [];
-            $ref = &$ref[$k];
-        }
-
-        $ref = $value;
+        return ["Data" => $fields, "Files" => $files];
     }
 
-    return ["Data" => $fields, "Files" => $files];
-}
-
-function parse_files()
-{
-    if (
-        empty($_SERVER['CONTENT_TYPE']) ||
-        strpos($_SERVER['CONTENT_TYPE'], 'multipart/form-data') === false
-    ) {
-        return [];
-    }
-
-    if (!preg_match('/boundary=(.*)$/', $_SERVER['CONTENT_TYPE'], $m)) {
-        return [];
-    }
-
-    $boundary = $m[1];
-
-    // Lê o body em modo binário
-    $raw = fopen('php://input', 'rb');
-    $body = stream_get_contents($raw);
-    fclose($raw);
-
-    if ($body === false || $body === '') {
-        return [];
-    }
-
-    $files = [];
-
-    // Split binário-safe
-    $blocks = preg_split(
-        "/-+$boundary/",
-        $body
-    );
-
-    foreach ($blocks as $block) {
-        // precisa conter filename
+    public static function ParseFiles()
+    {
         if (
-            strpos($block, 'filename="') === false ||
-            !preg_match('/name="([^"]+)"/', $block, $nameMatch) ||
-            !preg_match('/filename="([^"]*)"/', $block, $fileMatch)
+            empty($_SERVER['CONTENT_TYPE']) ||
+            strpos($_SERVER['CONTENT_TYPE'], 'multipart/form-data') === false
         ) {
-            continue;
+            return [];
         }
 
-        $fieldName = $nameMatch[1];
-        $fileName  = $fileMatch[1];
+        if (!preg_match('/boundary=(.*)$/', $_SERVER['CONTENT_TYPE'], $m)) {
+            return [];
+        }
 
-        // separa headers do corpo
-        $pos = strpos($block, "\r\n\r\n");
-        if ($pos === false) continue;
+        $boundary = $m[1];
 
-        $fileData = substr($block, $pos + 4);
+        $raw = fopen('php://input', 'rb');
+        $body = stream_get_contents($raw);
+        fclose($raw);
 
-        // remove CRLF final e boundary residual
-        $fileData = preg_replace("/\r\n--$/", '', $fileData);
-        $fileData = preg_replace("/\r\n$/", '', $fileData);
+        if ($body === false || $body === '') {
+            return [];
+        }
 
-        if ($fileName === '') continue;
+        $files = [];
 
-        // cria arquivo temporário real
-        $tmpPath = tempnam(sys_get_temp_dir(), 'upload_');
-        file_put_contents($tmpPath, $fileData);
+        $blocks = preg_split(
+            "/-+$boundary/",
+            $body
+        );
 
-        $files[$fieldName] = [
-            'name'     => $fileName,
-            'type'     => mime_content_type($tmpPath),
-            'tmp_name' => $tmpPath,
-            'error'    => 0,
-            'size'     => filesize($tmpPath)
-        ];
+        foreach ($blocks as $block) {
+            if (
+                strpos($block, 'filename="') === false ||
+                !preg_match('/name="([^"]+)"/', $block, $nameMatch) ||
+                !preg_match('/filename="([^"]*)"/', $block, $fileMatch)
+            ) {
+                continue;
+            }
+
+            $fieldName = $nameMatch[1];
+            $fileName  = $fileMatch[1];
+
+            $pos = strpos($block, "\r\n\r\n");
+            if ($pos === false) continue;
+
+            $fileData = substr($block, $pos + 4);
+
+            $fileData = preg_replace("/\r\n--$/", '', $fileData);
+            $fileData = preg_replace("/\r\n$/", '', $fileData);
+
+            if ($fileName === '') continue;
+
+            $tmpPath = tempnam(sys_get_temp_dir(), 'upload_');
+            file_put_contents($tmpPath, $fileData);
+
+            $files[$fieldName] = [
+                'name'     => $fileName,
+                'type'     => mime_content_type($tmpPath),
+                'tmp_name' => $tmpPath,
+                'error'    => 0,
+                'size'     => filesize($tmpPath)
+            ];
+        }
+
+        return $files;
     }
 
-    return $files;
+    public static function ResolvePayloads(array $payloadIds): Payloads
+    {
+        $payloads = new Payloads();
+
+        foreach ($payloadIds as $payloadId) {
+            $payloadId = basename($payloadId);
+            PayloadRegistry::add($payloadId);
+
+            $folder = TEMP_PATH . "/$payloadId";
+            if (!is_dir($folder)) continue;
+
+            $streams = glob("$folder/stream.*");
+            if (empty($streams)) continue;
+
+            $tmp = $streams[0];
+
+            $payload = new Payload();
+            $payload->Nome     = basename($tmp);
+            $payload->MimeType = mime_content_type($tmp) ?: 'application/octet-stream';
+            $payload->TempPath = $tmp;
+            $payload->Error    = 0;
+            $payload->Size     = filesize($tmp);
+
+            $payloads->Add($payload);
+        }
+
+        return $payloads;
+    }
+
+    public static function DisposePayload(string $payload) {
+        $dir = TEMP_PATH . "/$payload";
+        if (!is_dir($dir)) return;
+
+        foreach (glob("$dir/*") as $file) {
+            @unlink($file);
+        }
+
+        @rmdir($dir);
+    }
+
+    public static function DisposeTtlPayload(int $ttlSeconds = 3600): void
+    {
+        foreach (glob(TEMP_PATH . "/stream.*") as $dir) {
+            if (!is_dir($dir)) continue;
+
+            if (time() - filemtime($dir) > $ttlSeconds) {
+                foreach (glob("$dir/*") as $f) {
+                    @unlink($f);
+                }
+                @rmdir($dir);
+            }
+        }
+    }
 }
 
 if (json_last_error() !== JSON_ERROR_NONE && $_SERVER['REQUEST_METHOD'] != "GET") {
 
-    $parse = parse_formdata($rawInput);
+    $parse = ActionHelper::ParseFormData($rawInput);
     $data = $parse['Data'];
 
     if (empty($data)) {
@@ -291,62 +332,8 @@ if (json_last_error() !== JSON_ERROR_NONE && $_SERVER['REQUEST_METHOD'] != "GET"
 #endregion
 
 #region payloads process
-function resolvePayloads(array $payloadIds): Payloads
-{
-    $payloads = new Payloads();
-
-    foreach ($payloadIds as $payloadId) {
-        $payloadId = basename($payloadId);
-        PayloadRegistry::add($payloadId);
-
-        $folder = TEMP_PATH . "/$payloadId";
-        if (!is_dir($folder)) continue;
-
-        $streams = glob("$folder/stream.*");
-        if (empty($streams)) continue;
-
-        $tmp = $streams[0];
-
-        $payload = new Payload();
-        $payload->Nome     = basename($tmp);
-        $payload->MimeType = mime_content_type($tmp) ?: 'application/octet-stream';
-        $payload->TempPath = $tmp;
-        $payload->Error    = 0;
-        $payload->Size     = filesize($tmp);
-
-        $payloads->Add($payload);
-    }
-
-    return $payloads;
-}
-
-function disposePayload(string $payload) {
-    $dir = TEMP_PATH . "/$payload";
-    if (!is_dir($dir)) return;
-
-    foreach (glob("$dir/*") as $file) {
-        @unlink($file);
-    }
-
-    @rmdir($dir);
-}
-
-function disposeTtlPayload(int $ttlSeconds = 3600): void
-{
-    foreach (glob(TEMP_PATH . "/stream.*") as $dir) {
-        if (!is_dir($dir)) continue;
-
-        if (time() - filemtime($dir) > $ttlSeconds) {
-            foreach (glob("$dir/*") as $f) {
-                @unlink($f);
-            }
-            @rmdir($dir);
-        }
-    }
-}
-
 if (!empty($data['payloads'])) {
-    $files = resolvePayloads($data['payloads']);
+    $files = ActionHelper::ResolvePayloads($data['payloads']);
 }
 else {
     $files = new Payloads();
@@ -458,7 +445,7 @@ class Action {
                 ApiResponse::GetCallback()->setStatus(0)->setError("tenant not found for $action -> $method")->setMensagem("Ocorreu um erro ao executar ação!")->run();
             }
 
-            $appSlug = env('APP_SLUG') ?? 'cyan';
+            $appSlug = Utils::Env('APP_SLUG') ?? 'cyan';
             $fpath = preg_replace('/^.*' . preg_quote($appSlug, '/') . '[\/\\\\]/', '', $path);
 
             if (!$auth['Auth'] or ($auth['Auth'] == true and !$auth['IsLogin'] and empty($auth['Tenant']))) {
@@ -480,7 +467,7 @@ class Action {
                 $body[$key] = $arg;
             }
             
-            $logID = logs()->setAcao($action)->setFile($fpath)->setMethod($method)->setBody(S::Encrypt(JSON::Encode($body)), $headers)->setStatus(1)->send();
+            $logID = Logs::Create()->setAcao($action)->setFile($fpath)->setMethod($method)->setBody(S::Encrypt(JSON::Encode($body)), $headers)->setStatus(1)->send();
             self::$logs[] = $logID;
 
             $ref->invokeArgs($args);
@@ -497,7 +484,7 @@ register_shutdown_function(function() {
         Action::Run();
 
         foreach(PayloadRegistry::all() as $payload) {
-            disposePayload($payload);
+            ActionHelper::DisposePayload($payload);
         }
     }
         

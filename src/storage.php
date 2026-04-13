@@ -122,7 +122,7 @@ final class FileTransactionManager
         $intent->file      = $file;
         // Sanitizing directory to prevent traversal outside public/uploads equivalent
         $intent->finalDir  = rtrim($finalDir, '/');
-        $intent->finalName = HashStr() . '.' . $ext;
+        $intent->finalName = \Security::Hash() . '.' . $ext;
 
         self::$intents[] = $intent;
 

@@ -1,8 +1,5 @@
 <?php
 
-require_once "database.php";
-require_once "math.php";
-
 class Debug {
 
     static $database = null;

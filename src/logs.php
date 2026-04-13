@@ -1,26 +1,10 @@
 <?php
 
-require_once "database.php";
-require_once "utils.php";
-
-$current_log_id = "";
-
-function getLogs() {
-    return new Logs();
-}
-
-function currentLog() {
-    global $current_log_id;
-    return $current_log_id;
-}
-
-function logs() {
-    return getLogs();
-}
-
 //getLogs()->setAcao("")->setFile("")->setParameters(json_encode($_POST))->send();
 
 class Logs {
+
+    private static $currentLogId = "";
 
     private $message;
     private $body;
@@ -149,9 +133,16 @@ class Logs {
         return self::$logContext;
     }
 
+    public static function Create() {
+        return new self();
+    }
+
+    public static function CurrentLogId() {
+        return self::$currentLogId;
+    }
+
     public function send() {
-        global $current_log_id;
-        $user = currentUser();
+        $user = Utils::CurrentUser();
         $logID = $this->logID;
         $ctx = self::GetLogContext();
 
@@ -170,8 +161,8 @@ class Logs {
             ), $ctx);
 
             if ($data->validExecute()) {
-                $current_log_id = \Database::GetLastInsertID($ctx);
-                return $current_log_id;
+                self::$currentLogId = \Database::GetLastInsertID($ctx);
+                return self::$currentLogId;
             }
             else {
                 return false;
@@ -201,16 +192,16 @@ class Logs {
         $remote = $_SERVER['REMOTE_ADDR'] ?? '';
         $proxy = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? '';
         $shared = $_SERVER['HTTP_CLIENT_IP'] ?? '';
-        $user_obj = currentUser();
+        $user_obj = Utils::CurrentUser();
         $user = (empty($usuario)) ? ($user_obj ? $user_obj->ID : 0) : $usuario;
 
         $sql = \Database::Query("INSERT INTO logs_auditoria(usuario, event, status, remote_address, proxy_address, shared_address, remote_hash, proxy_hash, shared_hash, parent) VALUES(?,?,?,?,?,?,?,?,?,?)", [
             (empty($user)) ? 0 : $user,
             $evento, 
             $status,
-            (!empty($remote)) ? \Encrypt($remote) : null,
-            (!empty($proxy)) ? \Encrypt($proxy) : null,
-            (!empty($shared)) ? \Encrypt($shared) : null,
+            (!empty($remote)) ? \Security::Encrypt($remote) : null,
+            (!empty($proxy)) ? \Security::Encrypt($proxy) : null,
+            (!empty($shared)) ? \Security::Encrypt($shared) : null,
             (!empty($remote)) ? \Security::Hash($remote) : null,
             (!empty($proxy)) ? \Security::Hash($proxy) : null,
             (!empty($shared)) ? \Security::Hash($shared) : null,

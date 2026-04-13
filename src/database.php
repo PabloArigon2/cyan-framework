@@ -1,6 +1,5 @@
 <?php
 
-require_once "utils.php";
 
 class QueryResult
 {
@@ -136,9 +135,6 @@ class Parameter
     }
 }
 
-function parameter($type, $val) {
-    return new Parameter($type, $val);
-}
 
 class Database
 {
@@ -303,11 +299,11 @@ class Database
     }
 }
 
-$dbhost = env("DB_HOST") ?? "localhost";
-$dbuser = env("DB_USER") ?? "root";
-$dbpass = env("DB_PASS") ?? "";
-$db     = env("DB_NAME") ?? "cyan";
-$dbport = env("DB_PORT") ?? 3306;
+$dbhost = Utils::Env("DB_HOST") ?? "localhost";
+$dbuser = Utils::Env("DB_USER") ?? "root";
+$dbpass = Utils::Env("DB_PASS") ?? "";
+$db     = Utils::Env("DB_NAME") ?? "cyan";
+$dbport = Utils::Env("DB_PORT") ?? 3306;
 
 Database::Initialize($dbhost, $dbuser, $dbpass, $db, $dbport);
 

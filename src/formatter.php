@@ -1,6 +1,9 @@
 <?php
 
 final class Formatter {
+
+    // --- Remoção de Acentos e Slugs ---
+
     public static function RemoverAcentos($string) {
         $mapa = [
             'á' => 'a', 'à' => 'a', 'ã' => 'a', 'â' => 'a', 'ä' => 'a',
@@ -26,9 +29,13 @@ final class Formatter {
         return preg_replace('/[^a-z0-9]/', '', $string);
     }
 
+    // --- Nomes ---
+
     public static function FormatName($nome) {
         return preg_split('/\s+/', $nome);
     }
+
+    // --- Datas e Tempo ---
 
     public static function CalcularAnos($data) {
         if (empty($data)) return 0;
@@ -36,10 +43,6 @@ final class Formatter {
         $d2 = new \DateTime(date("Y-m-d"));
         $diff = $d2->diff($d1);
         return $diff->y;
-    }
-
-    public static function FormatValor($val) {
-        return "R$ " . number_format((float)$val, 2, ',', '.');
     }
 
     public static function FormatarDuracao($segundos) {
@@ -53,9 +56,221 @@ final class Formatter {
         }
     }
 
+    // --- Monetário ---
+
+    public static function FormatValor($val) {
+        return "R$ " . number_format((float)$val, 2, ',', '.');
+    }
+
+    // --- Crescimento / Percentuais ---
+
     public static function GetCrescimento($val1, $val2) {
         if ($val1 == 0) return 0;
         return (($val2 - $val1) / $val1) * 100;
+    }
+
+    // --- Documentos Brasileiros ---
+
+    public static function FormatarCPF($text) {
+        $value = preg_replace('/\D/', '', $text);
+
+        $formattedValue = '';
+
+        if (strlen($value) > 0) {
+            $formattedValue .= substr($value, 0, 3);
+        }
+        if (strlen($value) >= 3) {
+            $formattedValue .= '.' . substr($value, 3, 3);
+        }
+        if (strlen($value) >= 6) {
+            $formattedValue .= '.' . substr($value, 6, 3);
+        }
+        if (strlen($value) >= 9) {
+            $formattedValue .= '-' . substr($value, 9, 2);
+        }
+
+        return $formattedValue;
+    }
+
+    public static function ValidarCPF($number) {
+
+        $cpf = preg_replace('/[^0-9]/', "", $number);
+
+        if (strlen($cpf) != 11 || preg_match('/([0-9])\1{10}/', $cpf)) {
+            return false;
+        }
+
+        $number_quantity_to_loop = [9, 10];
+
+        foreach ($number_quantity_to_loop as $item) {
+
+            $sum = 0;
+            $number_to_multiplicate = $item + 1;
+
+            for ($index = 0; $index < $item; $index++) {
+
+                $sum += $cpf[$index] * ($number_to_multiplicate--);
+
+            }
+
+            $result = (($sum * 10) % 11);
+
+            if ($cpf[$item] != $result) {
+                return false;
+            }
+
+        }
+
+        return true;
+    }
+
+    public static function FormatarCnpj($text) {
+        $value = preg_replace('/\D/', '', $text);
+
+        $formattedValue = '';
+
+        if (strlen($value) > 0) {
+            $formattedValue .= substr($value, 0, 2);
+        }
+        if (strlen($value) >= 2) {
+            $formattedValue .= '.' . substr($value, 2, 3);
+        }
+        if (strlen($value) >= 5) {
+            $formattedValue .= '.' . substr($value, 5, 3);
+        }
+        if (strlen($value) >= 8) {
+            $formattedValue .= '/' . substr($value, 8, 4);
+        }
+        if (strlen($value) >= 12) {
+            $formattedValue .= '-' . substr($value, 12, 2);
+        }
+
+        return $formattedValue;
+    }
+
+    public static function FormatarRG($text)
+    {
+        $value = preg_replace('/\D/', '', $text);
+
+        $formattedValue = "";
+
+        if (strlen($value) > 0) {
+            $formattedValue .= substr($value, 0, 2);
+        }
+        if (strlen($value) > 2) {
+            $formattedValue .= "." . substr($value, 2, 3);
+        }
+        if (strlen($value) > 5) {
+            $formattedValue .= "." . substr($value, 5, 3);
+        }
+        if (strlen($value) > 8) {
+            $formattedValue .= "-" . substr($value, 8, 2);
+        }
+
+        return $formattedValue;
+    }
+
+    public static function FormatarRNE($text)
+    {
+        $firstChar = substr($text, 0, 1);
+        $letter = preg_replace('/[0-9]/', '', $firstChar);
+
+        $value = preg_replace('/\D/', '', $text);
+
+        $formattedValue = "";
+
+        if (strlen($value) > 0) {
+            $formattedValue .= substr($value, 0, 6);
+        }
+        if (strlen($value) > 6) {
+            $formattedValue .= "-" . substr($value, 6, 1);
+        }
+
+        return strtoupper($letter . $formattedValue);
+    }
+
+    public static function FormatarTelefone($text) {
+        $value = preg_replace('/\D/', '', $text);
+        $result = "";
+
+        if (strlen($value) > 10) {
+            $text = substr($value, 0, -1);
+        }
+
+        if (strlen($value) >= 7) {
+            $result = "(".substr($value, 0, 2).") ".substr($value, 2, 5)."-".substr($value, 7);
+        }
+        else if (strlen($value) > 2 && strlen($value) <= 7) {
+            $result = "(".substr($value, 0, 2).") ".substr($value, 2, 7);
+        }
+        else if (strlen($value) <= 2) {
+            $result = substr($value, 0, 2);
+        }
+
+        return $result;
+    }
+
+    public static function FormatarCEP(string $numero): string {
+        $valorLimpo = preg_replace('/\D/', '', $numero);
+
+        $tamanho = strlen($valorLimpo);
+
+        if ($tamanho >= 8) {
+            $primeiraParte = substr($valorLimpo, 0, 5);
+            $segundaParte = substr($valorLimpo, 5, 3);
+            
+            return "{$primeiraParte}-{$segundaParte}";
+            
+        } elseif ($tamanho > 5) {
+            return substr($valorLimpo, 0, 5) . substr($valorLimpo, 5);
+        }
+        
+        return $valorLimpo;
+    }
+
+    public static function FormatarCarteirinha($text) {
+        $value = preg_replace('/\D/', '', $text);
+
+        $formattedValue = '';
+
+        if (strlen($value) > 0) {
+            $formattedValue .= substr($value, 0, 4);
+        }
+        if (strlen($value) >= 4) {
+            $formattedValue .= '.' . substr($value, 4, 4);
+        }
+        if (strlen($value) >= 8) {
+            $formattedValue .= '.' . substr($value, 8, 6);
+        }
+        if (strlen($value) >= 14) {
+            $formattedValue .= '.' . substr($value, 14, 2);
+        }
+        if (strlen($value) >= 16) {
+            $formattedValue .= '-' . substr($value, 16, 1);
+        }
+
+        return $formattedValue;
+    }
+
+    public static function FormatarNumGuia($numero) {
+        $value = preg_replace('/\D/', '', $numero);
+
+        $formattedValue = '';
+
+        if (strlen($value) > 0) {
+            $formattedValue .= substr($value, 0, 4);
+        }
+        if (strlen($value) >= 4) {
+            $formattedValue .= '.' . substr($value, 4, 4);
+        }
+        if (strlen($value) >= 8) {
+            $formattedValue .= '.' . substr($value, 8, 2);
+        }
+        if (strlen($value) >= 10) {
+            $formattedValue .= '-' . substr($value, 10);
+        }
+
+        return $formattedValue;
     }
 }
 

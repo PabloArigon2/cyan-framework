@@ -109,7 +109,7 @@ final class Router {
         self::$routeInfo = self::Resolve(self::$config['baseDir'], self::$rota);
 
         // Constrói o ViewContext DTO
-        $userObj = function_exists('currentUser') ? currentUser() : null;
+        $userObj = Utils::CurrentUser();
         self::$viewContext = new ViewContext(
             $userObj,
             $_SESSION['currentPanel'] ?? null,

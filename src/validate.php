@@ -56,7 +56,7 @@ class Validate {
         }
             
 
-        $envKey = env("API_KEY_MEDICAL");
+        $envKey = Utils::Env("API_KEY_MEDICAL");
 
         if (empty($envKey)) {
             $errorMsg = "Não foi possível realizar validação!";

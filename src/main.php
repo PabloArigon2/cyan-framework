@@ -6,16 +6,10 @@ if (file_exists(__DIR__ . "/vendor/autoload.php")) {
     die("Autoload PSR-4 não encontrado. Execute 'composer dump-autoload'.");
 }
 
-use Security as S;
-
 Debug::Start();
 
-date_default_timezone_set('America/Bahia');
+date_default_timezone_set(Utils::Env('APP_TIMEZONE') ?? 'America/Bahia');
 
 $dir = Utils::getDirLink();
 
-function isEvent($v1, $event) {
-    if ($v1 == $event) { return true; }
-    return false;
-}
 ?>

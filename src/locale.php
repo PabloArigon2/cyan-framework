@@ -92,11 +92,4 @@ final class Locale {
     }
 }
 
-/**
- * Função-atalho global para tradução.
- */
-function __(string $key, array $replace = [], ?string $fallback = null): string {
-    return Locale::get($key, $replace, $fallback);
-}
-
 ?>

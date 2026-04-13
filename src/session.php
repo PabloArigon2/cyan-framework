@@ -47,7 +47,7 @@ final class Session {
      * Valida a sessão ativa: expiração + fingerprint do browser.
      */
     public static function validate(): bool {
-        $ttl = (int)(env('SESSION_TTL') ?? 86400); // default 24h
+        $ttl = (int)(Utils::Env('SESSION_TTL') ?? 86400); // default 24h
 
         // Expiração por inatividade
         if (isset($_SESSION['_LAST_ACTIVITY'])) {
@@ -59,7 +59,7 @@ final class Session {
         $_SESSION['_LAST_ACTIVITY'] = time();
 
         // Fingerprint (User-Agent binding)
-        $fingerprint = hash('sha256', ($_SERVER['HTTP_USER_AGENT'] ?? '') . (env('SESSION_SALT') ?? 'cyan'));
+        $fingerprint = hash('sha256', ($_SERVER['HTTP_USER_AGENT'] ?? '') . (Utils::Env('SESSION_SALT') ?? 'cyan'));
         if (isset($_SESSION['_FINGERPRINT'])) {
             if (!hash_equals($_SESSION['_FINGERPRINT'], $fingerprint)) {
                 self::destroy();

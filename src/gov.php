@@ -1,7 +1,5 @@
 <?php
 
-require_once "main.php";
-
 class GovApi {
     public static function GetCNES($cnes = 0) {
 

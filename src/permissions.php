@@ -88,7 +88,7 @@ final class Permissions {
 
             foreach($sql->get() as $row) {
                 $perms = $row['permissions'];
-                $perms = \Decrypt($perms);
+                $perms = \Security::Decrypt($perms);
                 $perms = json_decode($perms, true);
 
                 foreach($perms as $key => $prm) {

@@ -1,0 +1,227 @@
+<?php
+
+/**
+ * ViewContext — DTO fortemente tipado que substitui a global $user
+ * nos templates renderizados pelo Router.
+ */
+final class ViewContext {
+    public readonly ?object $user;
+    public readonly ?string $panel;
+    public readonly string  $link;
+    public readonly string  $dir;
+    public readonly array   $route;
+
+    public function __construct(?object $user, ?string $panel, string $link, string $dir, array $route) {
+        $this->user  = $user;
+        $this->panel = $panel;
+        $this->link  = $link;
+        $this->dir   = $dir;
+        $this->route = $route;
+    }
+}
+
+final class Router {
+    public static $config = [
+        "baseDir"     => 'content',
+        "popupDir"    => 'content/popup',
+        "errorDir"    => 'content/errors',
+        "defaultPage" => 'home'
+    ];
+
+    private static $isAjax   = false;
+    private static $isPartial = false;
+    private static $routeInfo = null;
+    private static $rota      = [];
+    private static ?ViewContext $viewContext = null;
+
+    public static function isAjax()       { return self::$isAjax; }
+    public static function isPartial()    { return self::$isPartial; }
+    public static function getRouteInfo() { return self::$routeInfo; }
+    public static function getRota()      { return self::$rota; }
+    public static function getView()      { return self::$viewContext; }
+
+    /**
+     * Sanitiza nome de rota, bloqueando path traversal (LFI).
+     * Apenas letras, números, hífens e underscores são permitidos.
+     */
+    private static function SanitizeFragment(string $fragment): string {
+        return preg_replace('/[^a-zA-Z0-9_\-]/', '', $fragment);
+    }
+
+    public static function ProcessChildMenu($target = ".profile-tab") {
+        if (!self::$routeInfo || empty(self::$routeInfo['info']['module'])) return;
+
+        $moduleName   = self::$routeInfo['info']['module'];
+        $manifestPath = self::$config['baseDir'] . "/" . $moduleName . "/manifest.json";
+
+        if (!file_exists($manifestPath)) return;
+
+        $manifest = json_decode(file_get_contents($manifestPath), true);
+        if (!is_array($manifest)) return;
+
+        $activeTabStr = self::$routeInfo['info']['child_name'] ?? array_key_first($manifest);
+
+        foreach ($manifest as $key => $data) {
+            $isActive = ($key === $activeTabStr) ? 'active' : '';
+            $icon  = htmlspecialchars($data['icon']  ?? '', ENT_QUOTES, 'UTF-8');
+            $title = htmlspecialchars($data['title'] ?? '', ENT_QUOTES, 'UTF-8');
+            $url   = htmlspecialchars("{$moduleName}/{$key}", ENT_QUOTES, 'UTF-8');
+
+            echo <<<HTML
+            <li class="menu-item {$isActive}">
+                <a href="{$url}" class="dynamic-trigger" data-target="{$target}">
+                    <i class="fa fa-fw {$icon}"></i>
+                    <span class="ps-2">{$title}</span>
+                </a>
+            </li>
+            HTML;
+        }
+    }
+
+    public static function Process($body) {
+        self::$isAjax = isset($_SERVER['HTTP_X_REQUESTED_WITH'])
+            && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest';
+
+        $url = isset($body['content']) ? rtrim($body['content'], '/') : self::$config['defaultPage'];
+        self::$rota = array_map([self::class, 'SanitizeFragment'], explode('/', $url));
+
+        $file = self::$rota[0];
+
+        // Popups — blindagem LFI: sanitizado acima, nenhum ".." ou "/" externo sobrevive
+        if (str_starts_with($file, "popup-")) {
+            $route = str_replace('popup-', '', $file);
+            $arquivo_pagina = self::$config['popupDir'] . "/" . $route . ".php";
+
+            if (self::$isAjax) {
+                if (file_exists($arquivo_pagina)) {
+                    include $arquivo_pagina;
+                } else {
+                    http_response_code(404);
+                    echo "Popup não encontrado.";
+                }
+                exit;
+            }
+        }
+
+        // Rota Parcial: Retorna só o filho (sem wrapper) quando chamado por navegação interna (sidebar)
+        self::$isPartial = self::$isAjax && isset($body['partial']) && $body['partial'] == '1';
+
+        self::$routeInfo = self::Resolve(self::$config['baseDir'], self::$rota);
+
+        // Constrói o ViewContext DTO
+        $userObj = function_exists('currentUser') ? currentUser() : null;
+        self::$viewContext = new ViewContext(
+            $userObj,
+            $_SESSION['currentPanel'] ?? null,
+            Utils::getPageLink(),
+            Utils::getDirLink(),
+            self::$rota
+        );
+
+        if (self::$isPartial) {
+            if (self::$routeInfo && !empty(self::$routeInfo['info']['child_path']) && file_exists(self::$routeInfo['info']['child_path'])) {
+                $view = self::$viewContext;
+                include self::$routeInfo['info']['child_path'];
+            } else {
+                http_response_code(404);
+                include self::$config['errorDir'] . '/404.php';
+            }
+            exit;
+        }
+    }
+
+    public static function Render() {
+        if (self::$routeInfo === null) {
+            http_response_code(404);
+            include self::$config['errorDir'] . "/404.php";
+            return;
+        }
+
+        if (isset(self::$routeInfo['status']) && self::$routeInfo['status'] === 403) {
+            http_response_code(403);
+            include self::$config['errorDir'] . "/403.php";
+            return;
+        }
+
+        // Injeta ViewContext ao invés de globals
+        $view = self::$viewContext;
+        $routeInfo = self::$routeInfo['info'] ?? null;
+
+        // Retrocompatibilidade: ainda injeta as globals antigas por segurança de transição
+        global $user, $currentPanel, $link, $dir;
+
+        include self::$routeInfo['path'];
+    }
+
+    public static function RenderChild() {
+        if (self::$routeInfo && self::$routeInfo['info']['is_nested'] && file_exists(self::$routeInfo['info']['child_path'])) {
+            $view = self::$viewContext;
+            include self::$routeInfo['info']['child_path'];
+        } else {
+            echo "<p class='text-muted'>Selecione uma opção no menu ao lado.</p>";
+        }
+    }
+
+    private static function Resolve($basePath, $fragments) {
+        $moduleName = $fragments[0];
+
+        if (empty($moduleName)) return null;
+
+        $masterView = $basePath . "/" . $moduleName . ".php";
+
+        if (!file_exists($masterView)) {
+            return null;
+        }
+
+        $result = [
+            'status' => 200,
+            'path'   => $masterView,
+            'info'   => [
+                'module'     => $moduleName,
+                'is_nested'  => false,
+                'child_path' => null,
+                'child_name' => null
+            ]
+        ];
+
+        $moduleDir = $basePath . "/" . $moduleName;
+
+        if (is_dir($moduleDir)) {
+            if (count($fragments) > 1 && !empty($fragments[1])) {
+                $subFileName = $fragments[1];
+
+                $manifestPath = $moduleDir . "/manifest.json";
+                if (file_exists($manifestPath)) {
+                    $manifestJSON = json_decode(file_get_contents($manifestPath), true);
+                    if (is_array($manifestJSON) && !isset($manifestJSON[$subFileName])) {
+                        return ['status' => 403, 'info' => []];
+                    }
+                }
+
+                $childPath = $moduleDir . "/" . $subFileName . ".php";
+                if (file_exists($childPath)) {
+                    $result['info']['is_nested']   = true;
+                    $result['info']['child_path']   = $childPath;
+                    $result['info']['child_name']   = $subFileName;
+                } else {
+                    return null;
+                }
+            } else {
+                $manifestPath = $moduleDir . "/manifest.json";
+                if (file_exists($manifestPath)) {
+                    $manifestJSON = json_decode(file_get_contents($manifestPath), true);
+                    if (is_array($manifestJSON) && count($manifestJSON) > 0) {
+                        $firstKey = array_keys($manifestJSON)[0];
+                        $result['info']['is_nested']   = true;
+                        $result['info']['child_path']   = $moduleDir . "/" . $firstKey . ".php";
+                        $result['info']['child_name']   = $firstKey;
+                    }
+                }
+            }
+        }
+
+        return $result;
+    }
+}
+
+?>

@@ -6,270 +6,13 @@ function env($key) {
 
 define("SELF", $_SERVER['PHP_SELF']);
 
-require_once ROOT."/utils/database.php";
-require_once ROOT."/utils/math.php";
-require_once ROOT."/utils/builder.php";
-require_once ROOT."/utils/cryptography.php";
-require_once ROOT."/vendor/autoload.php";
+// Legacy requires removidos — carregamento via Composer autoload
 
 use Security as S;
 
-final class Refund {
-    public const DONE = "DONE";
-    public const PENDING = "PENDING";
-    public const CANCELLED = "CANCELLED";
-}
 
-final class PayMethods {
-    public const ALL = "UNDEFINED";
-    public const BOLETO = "BOLETO";
-    public const CREDITO = "CREDIT_CARD";
-    public const PIX = "PIX";
-}
 
-final class ReqMethod {
-    public const GET = "GET";
-    public const POST = "POST";
-    public const DELETE = "DELETE";
-    public const PUT = "PUT";
-    public const PATCH = "PATCH";
-}
-
-final class MultaType {
-    public const FIXED = "FIXED";
-    public const PERCENTAGE = "PERCENTAGE";
-}
-
-final class PayStatus {
-    public const PENDING = "PENDING";
-    public const RECEIVED = "RECEIVED";
-    public const CONFIRMED = "CONFIRMED";
-    public const OVERDUE = "OVERDUE";
-    public const REFUNDED = "REFUNDED";
-    public const RECEIVED_CASH = "RECEIVED_IN_CASH";
-    public const REFUND_REQUESTED = "REFUND_REQUESTED";
-    public const REFUND_IN_PROGRESS = "REFUND_IN_PROGRESS";
-    public const CHARGEBACK_REQUESTED = "CHARGEBACK_REQUESTED";
-    public const CHARGEBACK_DISPUTE = "CHARGEBACK_DISPUTE";
-    public const AWAITING_CHARGEBACK_REVERSAL = "AWAITING_CHARGEBACK_REVERSAL";
-    public const DUNNING_REQUESTED = "DUNNING_REQUESTED";
-    public const DUNNING_RECEIVED = "DUNNING_RECEIVED";
-    public const AWAITING_RISK_ANALYSIS = "AWAITING_RISK_ANALYSIS";
-    public const DELETED = "DELETED";
-}
-
-class Callback {
-    public $mensagem = "";
-    public $erro = "";
-    public $values = null;
-    public $status = 0;
-    public $responseType = "";
-    public $errorCode = null;
-    private $code = 200;
-    public $httpCode = -1;
-
-    function __construct() {
-
-    }
-
-    public function run() {
-        if ($this->responseType == "") { $this->responseType = "application/json"; }
-
-        if ($this->erro != "" or $this->status != 1) {
-            $this->code = 400;
-        }
-        else if ($this->erro == "" and $this->status == 1) {
-            $this->code = 200;
-        }
-
-        if ($this->httpCode != -1) { $this->code = $this->httpCode; }
-
-        $result = array();
-        $result['Status'] = $this->status;
-
-        if (!empty($this->erro)) {
-            $base = basename($_SERVER['SCRIPT_FILENAME']);
-            $date = date("d/m/Y H:i:s");
-            error_log("[ $date ][ ERROR ] {$this->erro} ($base -> {$this->code})");
-        }
-
-        if ($this->errorCode != null) { $result['ErrCode'] = $this->errorCode; }
-        if ($this->mensagem != "") { $result['Mensagem'] = $this->mensagem; }
-        if ($this->erro != "") { $result['Erro'] = $this->erro; }
-        if ($this->values != null and (gettype($this->values) == "array" or gettype($this->values) == "object")) {
-            foreach($this->values as $key => $value) {
-                $result[$key] = $value;
-            }
-        }
-        else if ($this->values != null and (gettype($this->values) == "boolean" or gettype($this->values) == "integer" or gettype($this->values) == "double" or
-        gettype($this->values) == "string")) {
-            $result['Value'] = $this->values;
-        }
-
-        $response = [];
-
-        foreach($result as $key => $val) {
-            if (in_array($key, [ 'Mensagem', 'ErrCode', 'Erro', 'Status' ])) continue;
-            $response[$key] = $val;
-        }
-
-        if (!empty(Action::$logs)) {
-            logs()->setLogContinue(Action::$logs[count(Action::$logs) - 1])->setStatus($this->status)->setError((!empty($result['Erro'])) ? S::Encrypt($result['Erro']) : '')->setMessage($result['Mensagem'] ?? '')->setResponse((!empty($response)) ? S::Encrypt(JSON::Encode($response)) : '')->setHttpCode($this->code)->send();
-        }
-
-        Utils::Response(array("Content-Type" => $this->responseType), $result, $this->code);
-        $result['httpCode'] = $this->code;
-        return $result;
-    }
-
-    public function setHttpCode($code) {
-        $this->httpCode = $code;
-        return $this;
-    }
-
-    public function setStatus($status) {
-        $this->status = $status;
-        return $this;
-    }
-
-    public function setValues($values) {
-        $this->values = $values;
-        return $this;
-    }
-
-    public function setError($error) {
-        $this->erro = $error;
-        return $this;
-    }
-
-    public function setErrorCode($errCode) {
-        $this->errorCode = $errCode;
-        return $this;
-    }
-
-    public function setMensagem($msg) {
-        $this->mensagem = $msg;
-        return $this;
-    }
-
-    public function setJSON() {
-        $this->responseType = "application/json";
-        return $this;
-    }
-
-    public function setVariable(&$var, $value) {
-        $var = $value;
-        return $this;
-    }
-
-    public function setText() {
-        $this->responseType = "text/html";
-        return $this;
-    }
-}
-
-function getCallback() {
-    return new Callback();
-}
-
-function callback() { return getCallback(); }
-
-function response(int $status = 0, string $error = "", string $mensagem = "", array $values = [], int $httpCode = 0, bool $json = true) {
-    $callback = callback();
-    $callback->setStatus($status);
-    
-    if (!empty($error)) {
-        $callback->setError($error);
-    }
-
-    if (!empty($mensagem)) {
-        $callback->setMensagem($mensagem);
-    }
-
-    if (!empty($values)) {
-        $callback->setValues($values);
-    }
-
-    if (!empty($httpCode)) {
-        $callback->setHttpCode($httpCode);
-    }
-
-    if (!$json) {
-        $callback->setText();
-    }
-
-    $callback->run();
-}
-
-function removerAcentos($string) {
-    $mapa = [
-        'á' => 'a', 'à' => 'a', 'ã' => 'a', 'â' => 'a', 'ä' => 'a',
-        'é' => 'e', 'è' => 'e', 'ê' => 'e', 'ë' => 'e',
-        'í' => 'i', 'ì' => 'i', 'î' => 'i', 'ï' => 'i',
-        'ó' => 'o', 'ò' => 'o', 'ô' => 'o', 'õ' => 'o', 'ö' => 'o',
-        'ú' => 'u', 'ù' => 'u', 'û' => 'u', 'ü' => 'u',
-        'ç' => 'c', 'ñ' => 'n',
-        'Á' => 'A', 'À' => 'A', 'Ã' => 'A', 'Â' => 'A', 'Ä' => 'A',
-        'É' => 'E', 'È' => 'E', 'Ê' => 'E', 'Ë' => 'E',
-        'Í' => 'I', 'Ì' => 'I', 'Î' => 'I', 'Ï' => 'I',
-        'Ó' => 'O', 'Ò' => 'O', 'Ô' => 'O', 'Õ' => 'O', 'Ö' => 'O',
-        'Ú' => 'U', 'Ù' => 'U', 'Û' => 'U', 'Ü' => 'U',
-        'Ç' => 'C', 'Ñ' => 'N'
-    ];
-
-    return strtr($string, $mapa);
-}
-
-function removeSlugs($string) {
-    // 1. Remove acentos usando seu mapa (ou iconv se preferir)
-    $string = removerAcentos($string);
-    
-    // 2. Converte para minúsculo
-    $string = mb_strtolower($string, 'UTF-8');
-    
-    // 3. Remove qualquer coisa que não seja letra de a-z ou número
-    // Isso mata pontos, aspas, espaços extras, etc.
-    $string = preg_replace('/[^a-z0-9]/', '', $string);
-    
-    return $string;
-}
-
-function formatName($nome) {
-    $nome = preg_split('/\s+/', $nome);
-    return $nome;
-}
-
-function calcularAnos($data) {
-    $d1 = new DateTime($data);
-    $d2 = new DateTime(date("Y-m-d"));
-
-    $diff = $d2->diff($d1);
-
-    return $diff->y;
-}
-
-function formatValor($val) {
-    $valor_formatado = "R$ " . number_format($val, 2, ',', '.');
-    return $valor_formatado;
-}
-
-function formatarDuracao($segundos) {
-    $horas = floor($segundos / 3600); // Calcula as horas
-    $minutos = floor(($segundos % 3600) / 60); // Calcula os minutos restantes
-
-    // Se houver horas, exibe a parte da hora
-    if ($horas > 0) {
-        return $horas . 'hr ' . $minutos . 'min';
-    } else {
-        return $minutos . 'min';
-    }
-}
-
-function getCrescimento($val1, $val2) {
-    return (($val2 - $val1) / $val1) * 100;
-}
-
-function AutenticateRequisition() {
+function AuthenticateRequest() {
     $headers = getallheaders();
     $validatedSession = false;
     $validatedToken = false;
@@ -281,7 +24,7 @@ function AutenticateRequisition() {
         $validatedSession = true;
         $admin = false;
 
-        $tenant = new Tenant();
+        $tenant = new Context();
 
         $tenant->ApiRequest = false;
         $tenant->IdUsuario = $user->ID;
@@ -300,12 +43,12 @@ function AutenticateRequisition() {
                 $validatedToken = true;
                 
                 if ($name == "SOCKET_SERVER_AUTH_KEY") {
-                    $tenant = new Tenant();
+                    $tenant = new Context();
                     $tenant->Valid = true;
                     $tenant->NodeServer = true;
                 }
                 else if ($name == "API_TEST_KEY") {
-                    $tenant = new Tenant();
+                    $tenant = new Context();
                     $tenant->Valid = true;
                     $tenant->ApiRequest = true;
                 }
@@ -832,24 +575,23 @@ class Utils {
         return $result;
     }
 
-    public static function GetClientData(int|null $id_cliente = null, string|null $identifier = null, array|null $row = null) : Cliente {
+    public static function GetTenantData(int|null $id_tenant = null, string|null $identifier = null, array|null $row = null) : array {
 
-        $result = new Cliente();
+        $result = [];
 
         if (!empty($row)) {
-            $token = GetToken($row['id'], $row['identifier'], TokenEnv::EMPRESA);
+            $token = GetToken($row['id'], $row['identifier'], TokenEnv::TENANT);
             
             $data = Decrypt($row['dados'], $token);
-            $data = json_decode($data, true);
-            $result = Cliente::Build($data);
+            $result = json_decode($data, true) ?? [];
 
-            $result->Identifier = $row['identifier'];
-            $result->ID = $row['id'];
+            $result['Identifier'] = $row['identifier'];
+            $result['ID'] = $row['id'];
 
             return $result;
         }
 
-        if (empty($id_cliente) and empty($identifier))
+        if (empty($id_tenant) and empty($identifier))
             return $result;
 
         $sql = Database::Query("SELECT 
@@ -857,24 +599,23 @@ class Utils {
         identifier, 
         id,
         status
-        FROM empresas
-        WHERE empresas.id <=> COALESCE(?, empresas.id) AND empresas.identifier <=> COALESCE(?, empresas.identifier)", [
-            $id_cliente,
+        FROM tenants
+        WHERE tenants.id <=> COALESCE(?, tenants.id) AND tenants.identifier <=> COALESCE(?, tenants.identifier)", [
+            $id_tenant,
             $identifier
         ]);
 
         if ($sql->validQuery()) {
-            $token = GetToken($sql->field(0, "id"), $sql->field(0, "identifier"), TokenEnv::EMPRESA);
+            $token = GetToken($sql->field(0, "id"), $sql->field(0, "identifier"), TokenEnv::TENANT);
             
             $data = Decrypt($sql->field(0, "dados"), $token);
-            $data = json_decode($data, true);
-            $result = Cliente::Build($data);
+            $result = json_decode($data, true) ?? [];
 
-            $result->Identifier = $sql->field(0, "identifier");
-            $result->ID = $sql->field(0, "id");
+            $result['Identifier'] = $sql->field(0, "identifier");
+            $result['ID'] = $sql->field(0, "id");
         }
         else {
-            $result->Nome = $sql->error();
+            $result['Error'] = $sql->error();
         }
 
         return $result;
@@ -993,49 +734,39 @@ class Utils {
         // Obtém o link base sem o caminho atual
         $baseLink = self::getPageLink();
 
-        // Obtém o caminho da URL (ex: /telemedicina/admin/dashboard)
         $requestUri = $_SERVER['REQUEST_URI'];
+        $appSlug = env('APP_SLUG') ?? '';
 
-        // Remove o prefixo se existir (ex: /telemedicina/)
         $prefix = "";
-        if (strpos($requestUri, '/ecoglobal/') !== false) {
-            $prefix = "/ecoglobal";
+        if (!empty($appSlug) && strpos($requestUri, '/' . $appSlug . '/') !== false) {
+            $prefix = "/" . $appSlug;
         }
 
-        // Divide o caminho em partes
         $parts = explode('/', trim($requestUri, '/'));
         
-        // Remove o prefixo do array se for um ambiente de desenvolvimento
-        if (!empty($prefix) && $parts[0] === 'ecoglobal') {
+        if (!empty($prefix) && isset($parts[0]) && $parts[0] === $appSlug) {
             array_shift($parts);
         }
 
-        // O primeiro diretório é o que queremos
         $dir = $parts[0] ?? '';
 
-        // Se o primeiro diretório existir, retorna o link base + o diretório
         if (!empty($dir)) {
             return $baseLink . '/' . $dir;
         }
 
-        // Se não houver diretório (ex: página inicial), retorna apenas o link base
         return $baseLink;
     }
 
     public static function getPageLink() {
         $protocol = (empty($_SERVER['HTTPS']) ? 'http' : 'https');
         $url = $_SERVER['SERVER_NAME'];
-        $url2 = $url;
-        $prefix = "";
+        $appSlug = env('APP_SLUG') ?? '';
 
-        if ($url == "localhost" || $url == "192.168.15.6") {
-            $url = $url . "/ecoglobal/";
-            $url2 = $url2 . "/ecoglobal";
+        if (!empty($appSlug) && ($url == "localhost" || $url == "127.0.0.1")) {
+            $url = $url . "/" . $appSlug;
         }
 
-        $link = $protocol."://".$url2;
-
-        return $link;
+        return $protocol . "://" . $url;
     }
 
     public static function SanitizeInput($str) {
@@ -1059,12 +790,12 @@ class Utils {
         return $url;
     }
 
-    public static function GetClienteRegistro($id_usuario) {
-        $data = Database::Query("SELECT dados_usuarios.id_cliente, clientes.numero_registro FROM dados_usuarios
-        LEFT JOIN clientes ON clientes.id = dados_usuarios.id_cliente WHERE dados_usuarios.id_usuario = ".$id_usuario);
+    public static function GetTenantRegistry($id_usuario) {
+        $data = Database::Query("SELECT dados_usuarios.id_tenant, tenants.numero_registro FROM dados_usuarios
+        LEFT JOIN tenants ON tenants.id = dados_usuarios.id_tenant WHERE dados_usuarios.id_usuario = ".$id_usuario);
 
         if ($data->isValid() and $data->length() > 0) {
-            if ($data->field(0, "id_cliente") == null or empty($data->field(0, "id_cliente"))) {
+            if ($data->field(0, "id_tenant") == null or empty($data->field(0, "id_tenant"))) {
                 return null;
             }
             else {
@@ -1075,8 +806,8 @@ class Utils {
         return null;
     }
 
-    public static function GetClientID($registro) {
-        $data = Database::Query("SELECT id FROM clientes WHERE numero_registro = '".$registro."'");
+    public static function GetTenantID($registro) {
+        $data = Database::Query("SELECT id FROM tenants WHERE numero_registro = '".$registro."'");
 
         if ($data->isValid() and $data->length() > 0) {
             return $data->field(0, "id");
@@ -1085,23 +816,23 @@ class Utils {
         return null;
     }
 
-    public static function ValidateUserClient($id_usuario, $id_cliente) {
-        $data = Database::Query("SELECT id FROM clientes WHERE numero_registro = '".$id_cliente."'");
+    public static function ValidateUserTenant($id_usuario, $id_tenant) {
+        $data = Database::Query("SELECT id FROM tenants WHERE numero_registro = '".$id_tenant."'");
 
         if ($data->isValid() and $data->length() > 0){
-            $id_cliente = intval($data->field(0, "id"));
+            $id_tenant = intval($data->field(0, "id"));
         }
 
-        $data = Database::Query("SELECT id_cliente FROM dados_usuarios WHERE id_usuario = ".$id_usuario);
+        $data = Database::Query("SELECT id_tenant FROM dados_usuarios WHERE id_usuario = ".$id_usuario);
 
         if ($data->isValid() and $data->length() > 0) {
-            if ($data->field(0, "id_cliente") == null or empty($data->field(0, "id_cliente"))) {
+            if ($data->field(0, "id_tenant") == null or empty($data->field(0, "id_tenant"))) {
                 return false;
             }
             else {
-                $id_cliente_us = $data->field(0, "id_cliente");
+                $id_tenant_us = $data->field(0, "id_tenant");
 
-                if (gettype($id_cliente) == "integer" and $id_cliente == intval($id_cliente_us)) {
+                if (gettype($id_tenant) == "integer" and $id_tenant == intval($id_tenant_us)) {
                     return true;
                 }
                 else {

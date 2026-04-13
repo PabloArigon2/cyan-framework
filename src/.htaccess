@@ -1,0 +1,43 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    
+    # Routing everything through router/index.php if not a valid file
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^(.*)$ index.php [QSA,L]
+    
+    # Block internal config/storage files
+    RewriteRule ^(modules|utils|startup\.php|builder\.php|database\.php|structs\.php|formatter\.php|response\.php|storage\.php) - [F,L,NC]
+</IfModule>
+
+<IfModule mod_headers.c>
+    # Cache Control Estático
+    <FilesMatch "\.(ico|pdf|flv|jpg|jpeg|png|gif|svg|js|css|swf|webp)$">
+        Header set Cache-Control "max-age=2592000, public"
+    </FilesMatch>
+    
+    # Cache Control Dinâmico
+    <FilesMatch "\.(php|json|xml)$">
+        Header set Cache-Control "no-cache, no-store, must-revalidate"
+        Header set Pragma "no-cache"
+        Header set Expires 0
+    </FilesMatch>
+    
+    # Layer 7 Global Protection Headers
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set X-XSS-Protection "1; mode=block"
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+    Header set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+</IfModule>
+
+# Bloquear listagem de diretório globalmente
+Options -Indexes
+
+# Proteções gerais de Payload e memória (10MB max upload default L7 boundary)
+LimitRequestBody 10485760
+
+<FilesMatch "^\.">
+    Order allow,deny
+    Deny from all
+</FilesMatch>

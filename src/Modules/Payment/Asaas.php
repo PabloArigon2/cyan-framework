@@ -1,5 +1,7 @@
 <?php
 
+namespace Modules\Payment;
+
 require_once "utils.php";
 
 $URL = "";
@@ -191,7 +193,7 @@ class Asaas {
         return $result;
     }
 
-    private static function SendRequest($api, string $req = ReqMethod::POST, $fields = array()) {
+    private static function SendRequest($api, string $req = \ReqMethod::POST, $fields = array()) {
 
         $url = 'https://'.(self::GetAmbient() == Ambients::PROD ? AsaasURL::PROD : AsaasURL::HMLG)."/v3/".$api;
 
@@ -229,7 +231,7 @@ class Asaas {
         $err = curl_error($curl);
         curl_close($curl);
 
-        try { logs("pagamentos.php/".$api, json_encode($fields), json_encode([ "body" => $body, "headers" => $header ]))->send(); } catch(Exception $ex) {}
+        try { logs("pagamentos.php/".$api, json_encode($fields), json_encode([ "body" => $body, "headers" => $header ]))->send(); } catch(\Exception $ex) {}
 
         return [ "body" => $body, "headers" => $header ];
     }
@@ -244,9 +246,9 @@ class Asaas {
             return null;
         }
 
-        $endDate = date("Y-m-d", "+2 days");
+        $endDate = date("Y-m-d", strtotime("+2 days"));
 
-        $req = self::SendRequest("paymentLinks", ReqMethod::POST, [
+        $req = self::SendRequest("paymentLinks", \ReqMethod::POST, [
             'billingType' => BillingType::ALL,
             'chargeType' => $chargeType,
             'name' => $nome,
@@ -267,38 +269,23 @@ class Asaas {
     }
 
     public static function GetPayment($id = "") {
-        $req = self::SendRequest("paymentLinks/".$id, ReqMethod::GET);
+        $req = self::SendRequest("paymentLinks/".$id, \ReqMethod::GET);
         $req = self::Process($req);
         return $req;
     }
 
     public static function RemovePayment($id = "") {
-        $req = self::SendRequest("paymentLinks/".$id, ReqMethod::DELETE);
+        $req = self::SendRequest("paymentLinks/".$id, \ReqMethod::DELETE);
         $req = self::Process($req);
         return $req;
     }
 
-    /**
-     * Cria um checkout
-     *
-     * @param string $reference Referencia do checkout
-     * @param array $items Itens do checkout
-     * @param array $chargeType Formas de cobrança
-     * @param array $billingType Formas de pagamento
-     * @param User $customer Dados do pagador
-     * @param array{
-     * cycle: string,
-     * endDate: string,
-     * nextDueDate: string
-     * } $subscription Dados de subscricao
-     * @return array
-    */
-    public static function CreateCheckout($reference = "", array $items = [], array $chargeType = [], array $billingType = [], User|null $customer = null, array $subscription = []) {
+    public static function CreateCheckout($reference = "", array $items = [], array $chargeType = [], array $billingType = [], \User|null $customer = null, array $subscription = []) {
         $minutes = 30;
 
         $arrItems = [];
 
-        $url = Utils::getPageLink();
+        $url = \Utils::getPageLink();
         if (str_contains($url, "localhost")) {
             $url = "https://develop.mundodocuidar.com.br";
         }
@@ -329,7 +316,7 @@ class Asaas {
             $fields['subscription'] = $subscription;
         }
 
-        if ($customer != null and $customer instanceof User) {
+        if ($customer != null and $customer instanceof \User) {
             $fields['customerData'] = [
                 'name' => $customer->Nome,
                 'cpfCnpj' => $customer->CPF,
@@ -344,13 +331,13 @@ class Asaas {
             ];
         }
 
-        $req = self::SendRequest("checkouts", ReqMethod::POST, $fields);
+        $req = self::SendRequest("checkouts", \ReqMethod::POST, $fields);
         $req = self::Process($req);
         return $req;
     }
 
     public static function CancelCheckout($id) {
-        $req = self::SendRequest("checkouts/".$id."/cancel", ReqMethod::POST);
+        $req = self::SendRequest("checkouts/".$id."/cancel", \ReqMethod::POST);
         $req = self::Process($req);
         return $req;
     }
@@ -415,8 +402,8 @@ final class CheckoutItem {
         $item->description = $arr['description'];
         $item->image = $arr['imageBase64'];
         $item->name = $arr['name'];
-        $item->qtd = Math::parseInt($arr['quantity']);
-        $item->value = Math::parseDouble($arr['value']);
+        $item->qtd = \Math::parseInt($arr['quantity']);
+        $item->value = \Math::parseDouble($arr['value']);
 
         return $item;
     }
@@ -437,10 +424,10 @@ final class SubscriptionCycle {
 
 class Cobrancas {
     public static function GetPayment(int $id = 0, string $reference = "", string $paymentID = "") {
-        $sql = Database::Query("SELECT * FROM pagamentos WHERE id = ? OR reference = ? OR id_pagamento = ?", [
-            new Parameter("i", $id),
-            new Parameter("s", $reference),
-            new Parameter("s", Encrypt($paymentID))
+        $sql = \Database::Query("SELECT * FROM pagamentos WHERE id = ? OR reference = ? OR id_pagamento = ?", [
+            new \Parameter("i", $id),
+            new \Parameter("s", $reference),
+            new \Parameter("s", \Encrypt($paymentID))
         ]);
 
         return $sql->validQuery() ? $sql->get(0) : null;
@@ -610,257 +597,5 @@ final class CHECKOUT
 }
 
 Asaas::Initialize();
-
-//Envios Webhook
-/*
-
-{
- "id": "evt_15e444ff9b9ab9ec29294aa1abe68025&10469379",
- "event": "PAYMENT_CONFIRMED",
- "dateCreated": "2025-09-17 20:18:12",
- "payment": {
-  "object": "payment",
-  "id": "pay_pxr8js2n89x9il8h",
-  "dateCreated": "2025-09-17",
-  "customer": "cus_000007028723",
-  "checkoutSession": null,
-  "paymentLink": "rgbcoeyd4nevimq4",
-  "value": 2500,
-  "netValue": 2424.76,
-  "originalValue": null,
-  "interestValue": null,
-  "description": null,
-  "billingType": "CREDIT_CARD",
-  "confirmedDate": "2025-09-17",
-  "creditCard": {
-   "creditCardNumber": "4444",
-   "creditCardBrand": "VISA",
-   "creditCardToken": "8f77cc06-a90f-479e-a267-be665a963000"
-  },
-  "pixTransaction": null,
-  "status": "CONFIRMED",
-  "dueDate": "2025-10-01",
-  "originalDueDate": "2025-10-01",
-  "paymentDate": null,
-  "clientPaymentDate": "2025-09-17",
-  "installmentNumber": null,
-  "invoiceUrl": "https://sandbox.asaas.com/i/pxr8js2n89x9il8h",
-  "invoiceNumber": "11351278",
-  "externalReference": "222222222222",
-  "deleted": false,
-  "anticipated": false,
-  "anticipable": true,
-  "creditDate": "2025-10-20",
-  "estimatedCreditDate": "2025-10-20",
-  "transactionReceiptUrl": "https://sandbox.asaas.com/comprovantes/1391370397610053",
-  "nossoNumero": null,
-  "bankSlipUrl": null,
-  "lastInvoiceViewedDate": null,
-  "lastBankSlipViewedDate": null,
-  "discount": {
-   "value": 0,
-   "limitDate": null,
-   "dueDateLimitDays": 0,
-   "type": "FIXED"
-  },
-  "fine": {
-   "value": 0,
-   "type": "FIXED"
-  },
-  "interest": {
-   "value": 0,
-   "type": "PERCENTAGE"
-  },
-  "postalService": false,
-  "escrow": null,
-  "refunds": null
- }
-}
-
-{
- "id": "evt_d26e303b238e509335ac9ba210e51b0f&10469381",
- "event": "PAYMENT_RECEIVED",
- "dateCreated": "2025-09-17 20:18:47",
- "payment": {
-  "object": "payment",
-  "id": "pay_pxr8js2n89x9il8h",
-  "dateCreated": "2025-09-17",
-  "customer": "cus_000007028723",
-  "checkoutSession": null,
-  "paymentLink": "rgbcoeyd4nevimq4",
-  "value": 2500,
-  "netValue": 2424.76,
-  "originalValue": null,
-  "interestValue": null,
-  "description": null,
-  "billingType": "CREDIT_CARD",
-  "confirmedDate": "2025-09-17",
-  "creditCard": {
-   "creditCardNumber": "4444",
-   "creditCardBrand": "VISA",
-   "creditCardToken": "8f77cc06-a90f-479e-a267-be665a963000"
-  },
-  "pixTransaction": null,
-  "status": "RECEIVED",
-  "dueDate": "2025-10-01",
-  "originalDueDate": "2025-10-01",
-  "paymentDate": "2025-09-17",
-  "clientPaymentDate": "2025-09-17",
-  "installmentNumber": null,
-  "invoiceUrl": "https://sandbox.asaas.com/i/pxr8js2n89x9il8h",
-  "invoiceNumber": "11351278",
-  "externalReference": "222222222222",
-  "deleted": false,
-  "anticipated": false,
-  "anticipable": false,
-  "creditDate": "2025-09-17",
-  "estimatedCreditDate": "2025-09-17",
-  "transactionReceiptUrl": "https://sandbox.asaas.com/comprovantes/h/UEFZTUVOVF9SRUNFSVZFRDpwYXlfcHhyOGpzMm44OXg5aWw4aA%3D%3D",
-  "nossoNumero": null,
-  "bankSlipUrl": null,
-  "lastInvoiceViewedDate": null,
-  "lastBankSlipViewedDate": null,
-  "discount": {
-   "value": 0,
-   "limitDate": null,
-   "dueDateLimitDays": 0,
-   "type": "FIXED"
-  },
-  "fine": {
-   "value": 0,
-   "type": "FIXED"
-  },
-  "interest": {
-   "value": 0,
-   "type": "PERCENTAGE"
-  },
-  "postalService": false,
-  "escrow": null,
-  "refunds": null
- }
-}
-
-{
- "id": "evt_05b708f961d739ea7eba7e4db318f621&10469378",
- "event": "PAYMENT_CREATED",
- "dateCreated": "2025-09-17 20:18:12",
- "payment": {
-  "object": "payment",
-  "id": "pay_pxr8js2n89x9il8h",
-  "dateCreated": "2025-09-17",
-  "customer": "cus_000007028723",
-  "checkoutSession": null,
-  "paymentLink": "rgbcoeyd4nevimq4",
-  "value": 2500,
-  "netValue": 2424.76,
-  "originalValue": null,
-  "interestValue": null,
-  "description": null,
-  "billingType": "CREDIT_CARD",
-  "confirmedDate": "2025-09-17",
-  "creditCard": {
-   "creditCardNumber": "4444",
-   "creditCardBrand": "VISA",
-   "creditCardToken": "8f77cc06-a90f-479e-a267-be665a963000"
-  },
-  "pixTransaction": null,
-  "status": "CONFIRMED",
-  "dueDate": "2025-10-01",
-  "originalDueDate": "2025-10-01",
-  "paymentDate": null,
-  "clientPaymentDate": "2025-09-17",
-  "installmentNumber": null,
-  "invoiceUrl": "https://sandbox.asaas.com/i/pxr8js2n89x9il8h",
-  "invoiceNumber": "11351278",
-  "externalReference": "222222222222",
-  "deleted": false,
-  "anticipated": false,
-  "anticipable": true,
-  "creditDate": "2025-10-20",
-  "estimatedCreditDate": "2025-10-20",
-  "transactionReceiptUrl": "https://sandbox.asaas.com/comprovantes/1391370397610053",
-  "nossoNumero": null,
-  "bankSlipUrl": null,
-  "lastInvoiceViewedDate": null,
-  "lastBankSlipViewedDate": null,
-  "discount": {
-   "value": 0,
-   "limitDate": null,
-   "dueDateLimitDays": 0,
-   "type": "FIXED"
-  },
-  "fine": {
-   "value": 0,
-   "type": "FIXED"
-  },
-  "interest": {
-   "value": 0,
-   "type": "PERCENTAGE"
-  },
-  "postalService": false,
-  "escrow": null,
-  "refunds": null
- }
-}
-
-{
- "id": "evt_05b708f961d739ea7eba7e4db318f621&10469175",
- "event": "PAYMENT_CREATED",
- "dateCreated": "2025-09-17 20:14:48",
- "payment": {
-  "object": "payment",
-  "id": "pay_8q5g2b9brmt2cq5b",
-  "dateCreated": "2025-09-17",
-  "customer": "cus_000006667556",
-  "checkoutSession": null,
-  "paymentLink": null,
-  "value": 2500,
-  "netValue": 2424.76,
-  "originalValue": null,
-  "interestValue": null,
-  "description": "teste",
-  "billingType": "UNDEFINED",
-  "pixTransaction": null,
-  "status": "PENDING",
-  "dueDate": "2025-09-25",
-  "originalDueDate": "2025-09-25",
-  "paymentDate": null,
-  "clientPaymentDate": null,
-  "installmentNumber": null,
-  "invoiceUrl": "https://sandbox.asaas.com/i/8q5g2b9brmt2cq5b",
-  "invoiceNumber": "11351174",
-  "externalReference": "ssssssssssssssssssss212",
-  "deleted": false,
-  "anticipated": false,
-  "anticipable": false,
-  "creditDate": null,
-  "estimatedCreditDate": null,
-  "transactionReceiptUrl": null,
-  "nossoNumero": "11378398",
-  "bankSlipUrl": "https://sandbox.asaas.com/b/pdf/8q5g2b9brmt2cq5b",
-  "lastInvoiceViewedDate": null,
-  "lastBankSlipViewedDate": null,
-  "discount": {
-   "value": 0,
-   "limitDate": null,
-   "dueDateLimitDays": 0,
-   "type": "FIXED"
-  },
-  "fine": {
-   "value": 0,
-   "type": "FIXED"
-  },
-  "interest": {
-   "value": 0,
-   "type": "PERCENTAGE"
-  },
-  "postalService": false,
-  "daysAfterDueDateToRegistrationCancellation": 5,
-  "escrow": null,
-  "refunds": null
- }
-}
-
-*/
 
 ?>

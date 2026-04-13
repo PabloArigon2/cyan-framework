@@ -1,0 +1,35 @@
+{
+    "name": "pabloarigon2/cyan-framework",
+    "description": "Cyan Framework V1",
+    "type": "library",
+    "license": "proprietary",
+    "require": {
+        "vlucas/phpdotenv": "^5.6"
+    },
+    "autoload": {
+        "classmap": [
+            "src/"
+        ],
+        "files": [
+            "src/utils.php",
+            "src/builder.php",
+            "src/actions.php",
+            "src/database.php",
+            "src/cryptography.php",
+            "src/math.php",
+            "src/logs.php",
+            "src/permissions.php",
+            "src/debug.php",
+            "src/gov.php",
+            "src/structs.php",
+            "src/storage.php",
+            "src/formatter.php",
+            "src/response.php",
+            "src/router.php",
+            "src/qb.php",
+            "src/session.php",
+            "src/firewall.php",
+            "src/locale.php"
+        ]
+    }
+}

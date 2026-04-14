@@ -20,8 +20,7 @@ class Elements {
             case Colors::ORANGE:
                 return '<div class="bx box-orange">'.$text.'</div>';
             case Colors::BLUE:
-                return '<div class="bx box-blue">'.$text.'</div>';
-                
+                return '<div class="bx box-blue">'.$text.'</div>'; 
         }
     }
 }

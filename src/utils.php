@@ -5,8 +5,46 @@ define("SELF", $_SERVER['PHP_SELF'] ?? '');
 class Utils {
 
     // --- Especializadas (Proxies para Retrocompatibilidade) ---
+    // public static function RootFolder($localSubfolder = "") {
+    //     $str = ($_SERVER['SERVER_NAME'] == "localhost" or $_SERVER['SERVER_NAME'] == "192.168.15.7") ? "{$_SERVER['DOCUMENT_ROOT']}/$localSubfolder" : $_SERVER['DOCUMENT_ROOT'];
+    //     $GLOBALS['ROOT'] = $str;
+    //     return $str;
+    // }
+
+    public static function RootFolder(): string {
+        static $root = null;
+
+        if ($root !== null) return $root;
+
+        // 1. Override manual via ENV
+        if (!empty($_ENV['APP_ROOT'])) {
+            return $root = rtrim($_ENV['APP_ROOT'], '/\\');
+        }
+
+        // 2. Auto-discovery via composer.json
+        $dir = __DIR__;
+
+        while ($dir && $dir !== dirname($dir)) {
+            if (file_exists($dir . '/composer.json')) {
+                $real = realpath($dir);
+                return $root = rtrim($real !== false ? $real : $dir, '/\\');
+            }
+            $dir = dirname($dir);
+        }
+
+        // 3. Fallback final
+        $cwd = getcwd();
+        return $root = rtrim($cwd !== false ? $cwd : '.', '/\\');
+    }
 
     public static function Env($key) { 
+
+        // if (empty($GLOBALS['ROOT']))
+        //     $ROOT = self::RootFolder("teste");
+
+        // $env = parse_ini_file($ROOT.'/.env');
+        // $_ENV = $env;
+
         return isset($_ENV[$key]) ? $_ENV[$key] : null; 
     }
 

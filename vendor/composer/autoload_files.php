@@ -32,4 +32,5 @@ return array(
     '12729ed9fd91a48941ac9e85d6c4623b' => $baseDir . '/src/gov.php',
     'b246b654e4b89df5a927214b17d7e873' => $baseDir . '/src/router.php',
     'c050c17ebe6d7a4e2f9fa72299cf50c2' => $baseDir . '/src/session.php',
+    'ebdeaedc67db5671854c52767258e1bf' => $baseDir . '/src/env.php',
 );

@@ -31,7 +31,7 @@ class Request {
     public ?Payloads $payloads = null;
     public bool $hasPayloads = false;
     public string $payloadID = "";
-    public array $body = "";
+    public array $body = [];
 
     public static function Get() : self {
         $action = (!empty($_GET['action'])) ? $_GET['action'] : ((!empty($_GET['acao'])) ? $_GET['acao'] : null);

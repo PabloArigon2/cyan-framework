@@ -37,7 +37,8 @@
             "src/debug.php",
             "src/gov.php",
             "src/router.php",
-            "src/session.php"
+            "src/session.php",
+            "src/env.php"
         ]
     }
 }

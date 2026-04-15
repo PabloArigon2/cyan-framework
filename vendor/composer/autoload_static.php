@@ -33,6 +33,7 @@ class ComposerStaticInitc2ec338e9ddf5e4b8f7d715c74073692
         '12729ed9fd91a48941ac9e85d6c4623b' => __DIR__ . '/../..' . '/src/gov.php',
         'b246b654e4b89df5a927214b17d7e873' => __DIR__ . '/../..' . '/src/router.php',
         'c050c17ebe6d7a4e2f9fa72299cf50c2' => __DIR__ . '/../..' . '/src/session.php',
+        'ebdeaedc67db5671854c52767258e1bf' => __DIR__ . '/../..' . '/src/env.php',
     );
 
     public static $classMap = array (
@@ -57,6 +58,7 @@ class ComposerStaticInitc2ec338e9ddf5e4b8f7d715c74073692
         'Elements' => __DIR__ . '/../..' . '/src/style.php',
         'Endereco' => __DIR__ . '/../..' . '/src/builder.php',
         'EnvData' => __DIR__ . '/../..' . '/src/builder.php',
+        'EnvVariables' => __DIR__ . '/../..' . '/src/env.php',
         'ErrType' => __DIR__ . '/../..' . '/src/debug.php',
         'FileDriver' => __DIR__ . '/../..' . '/src/cache.php',
         'FileIntent' => __DIR__ . '/../..' . '/src/storage.php',
@@ -72,7 +74,7 @@ class ComposerStaticInitc2ec338e9ddf5e4b8f7d715c74073692
         'ICacheDriver' => __DIR__ . '/../..' . '/src/cache.php',
         'InputResolver' => __DIR__ . '/../..' . '/src/helpers.php',
         'JSON' => __DIR__ . '/../..' . '/src/structs.php',
-        'Locale' => __DIR__ . '/../..' . '/src/locale.php',
+        'Lang' => __DIR__ . '/../..' . '/src/locale.php',
         'Logs' => __DIR__ . '/../..' . '/src/logs.php',
         'Math' => __DIR__ . '/../..' . '/src/math.php',
         'MemoryDriver' => __DIR__ . '/../..' . '/src/cache.php',

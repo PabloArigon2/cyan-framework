@@ -294,6 +294,10 @@ final class Cache {
     private static ?ICacheDriver $instance = null;
 
     public static function init(string $driver, array $config = []) {
+
+        if ($driver == Driver::REDIS and !extension_loaded("redis"))
+            $driver = Driver::FILE;
+
         switch (strtolower($driver)) {
             case Driver::REDIS:
                 self::$instance = new RedisDriver($config);

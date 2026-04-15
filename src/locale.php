@@ -9,7 +9,7 @@
  *   echo __('http.errors.unauthorized');   // "Não autorizado"
  *   echo __('http.errors.notfound', ['page' => 'perfil']);  // "Página perfil não encontrada"
  */
-final class Locale {
+final class Lang {
 
     private static array $translations = [];
     private static string $lang = 'pt-BR';

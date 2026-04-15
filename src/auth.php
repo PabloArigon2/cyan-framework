@@ -6,6 +6,7 @@ final class Auth {
         $validatedSession = false;
         $validatedToken = false;
         $tenant = null;
+        $envUse = "";
 
         if (empty($headers['Authorization'])) {
             $user = Auth::CurrentUser();
@@ -19,6 +20,8 @@ final class Auth {
             $tenant->Valid = true;
             $tenant->User = $user;
             $tenant->ParentID = $_SESSION['businessid'] ?? 0;
+
+            $envUse = "user_tenant";
         }
         else {
             $auth = $headers['Authorization'];
@@ -41,13 +44,15 @@ final class Auth {
                     }
                 }
             }
+
+            $envUse = "api_token";
         }
 
         if ((empty($tenant) or !$tenant->Valid) && !$validatedToken) {
             $validatedSession = false;
         }
 
-        return [ "Auth" => ($validatedSession || $validatedToken), "Tenant" => $tenant ];
+        return [ "Auth" => ($validatedSession || $validatedToken), "Tenant" => $tenant, "Environment" => $envUse ];
     }
 
     public static function CurrentUser() : User|null {

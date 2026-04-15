@@ -85,5 +85,32 @@ final class ApiResponse {
 
         $callback->run();
     }
+
+    public static function Response(int $status = 0, string $error = "", string $mensagem = "", array $values = [], int $httpCode = 0, bool $json = true) {
+        $callback = self::GetCallback();
+        $callback->setStatus($status);
+        
+        if (!empty($error)) {
+            $callback->setError($error);
+        }
+
+        if (!empty($mensagem)) {
+            $callback->setMensagem($mensagem);
+        }
+
+        if (!empty($values)) {
+            $callback->setValues($values);
+        }
+
+        if (!empty($httpCode)) {
+            $callback->setHttpCode($httpCode);
+        }
+
+        if (!$json) {
+            $callback->setText();
+        }
+
+        $callback->run();
+    }
 }
 ?>

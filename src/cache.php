@@ -88,6 +88,16 @@ trait CacheHelper {
 final class MemoryDriver implements ICacheDriver {
     use CacheHelper;
     private static array $storage = [];
+    private string $prefix = "";
+
+    public function setPrefix(string $string): bool {
+        if (!empty($string)) {
+            $this->prefix = $string;
+            return true;
+        }
+
+        return false;
+    }
 
     public function allowClass(string $string): bool {
         return $this->addAllowedClass($string);

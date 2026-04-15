@@ -13,6 +13,7 @@ return array(
     '860eb082bef145e37296ba09b38b352b' => $baseDir . '/src/str.php',
     'bc98a3881b6f137a8cd670c18b98a800' => $baseDir . '/src/color.php',
     'a8cc58f21e61cb8d10e149f16a9ccec1' => $baseDir . '/src/devices.php',
+    'fb06265f2111519aaa6cf1070d1c2278' => $baseDir . '/src/cache.php',
     '15a9c498d7894b5795d0f641044666dd' => $baseDir . '/src/formatter.php',
     '4f134003aad5e69e1c230c0a7a139445' => $baseDir . '/src/math.php',
     'b13a053435be6adf798b0a7a61f1e75d' => $baseDir . '/src/locale.php',

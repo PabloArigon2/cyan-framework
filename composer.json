@@ -5,7 +5,7 @@
     "license": "proprietary",
     "require": {
         "vlucas/phpdotenv": "^5.6",
-        "phpredis/phpredis": "^6.3"
+        "ext-redis": "*"
     },
     "autoload": {
         "classmap": [

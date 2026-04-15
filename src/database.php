@@ -405,16 +405,4 @@ class Database
     }
 }
 
-$dbhost = Utils::Env("DB_HOST") ?? "localhost";
-$dbuser = Utils::Env("DB_USER") ?? "root";
-$dbpass = Utils::Env("DB_PASS") ?? "";
-$db     = Utils::Env("DB_NAME") ?? "cyan";
-$dbport = Utils::Env("DB_PORT") ?? 3306;
-
-Database::Initialize($dbhost, $dbuser, $dbpass, $db, $dbport);
-
-register_shutdown_function(function() {
-    Database::Close();
-});
-
 ?>

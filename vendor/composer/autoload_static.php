@@ -14,6 +14,7 @@ class ComposerStaticInitc2ec338e9ddf5e4b8f7d715c74073692
         '860eb082bef145e37296ba09b38b352b' => __DIR__ . '/../..' . '/src/str.php',
         'bc98a3881b6f137a8cd670c18b98a800' => __DIR__ . '/../..' . '/src/color.php',
         'a8cc58f21e61cb8d10e149f16a9ccec1' => __DIR__ . '/../..' . '/src/devices.php',
+        '820fd950b2707adbdf34d5c872cd6a71' => __DIR__ . '/../..' . '/src/post_processing.php',
         'fb06265f2111519aaa6cf1070d1c2278' => __DIR__ . '/../..' . '/src/cache.php',
         '15a9c498d7894b5795d0f641044666dd' => __DIR__ . '/../..' . '/src/formatter.php',
         '4f134003aad5e69e1c230c0a7a139445' => __DIR__ . '/../..' . '/src/math.php',

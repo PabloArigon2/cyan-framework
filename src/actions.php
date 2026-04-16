@@ -90,6 +90,16 @@ $availableArgs = [
     "env" => $dr
 ];
 
+// dispose temp files sended
+PostProcessing::register(function() {
+    ActionHelper::DisposeTtlPayload();
+}, priority: 20);
+
+// send bug report
+PostProcessing::register(function() {
+    Debug::SendReport();
+});
+
 class Action {
     public static $actions = [];
     public static $logs = [];

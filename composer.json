@@ -19,6 +19,7 @@
             "src/str.php",
             "src/color.php",
             "src/devices.php",
+            "src/post_processing.php",
             "src/cache.php",
             "src/formatter.php",
             "src/math.php",

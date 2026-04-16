@@ -18,6 +18,10 @@ class Debug {
         ]);
     }
 
+    public static function SendReport() {
+        
+    }
+
     public static function Stop() {
         restore_error_handler();
         restore_exception_handler();

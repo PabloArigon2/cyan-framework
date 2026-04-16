@@ -16,25 +16,34 @@ class Utils {
 
         if ($root !== null) return $root;
 
-        // 1. Override manual via ENV
+        // 1. Override manual (mais forte)
         if (!empty($_ENV['APP_ROOT'])) {
             return $root = rtrim($_ENV['APP_ROOT'], '/\\');
         }
 
-        // 2. Auto-discovery via composer.json
+        // 2. Detecta via Composer autoload (MELHOR MÉTODO)
+        foreach (get_included_files() as $file) {
+            if (str_ends_with($file, 'vendor/autoload.php')) {
+                return $root = rtrim(dirname(dirname($file)), '/\\');
+            }
+        }
+
+        // 3. Fallback: sobe diretórios procurando composer.json fora do vendor
         $dir = __DIR__;
 
-        while ($dir && $dir !== dirname($dir)) {
-            if (file_exists($dir . '/composer.json')) {
-                $real = realpath($dir);
-                return $root = rtrim($real !== false ? $real : $dir, '/\\');
+        while ($dir !== dirname($dir)) {
+            if (
+                file_exists($dir . '/composer.json') &&
+                !str_contains($dir, DIRECTORY_SEPARATOR . 'vendor' . DIRECTORY_SEPARATOR)
+            ) {
+                return $root = rtrim(realpath($dir) ?: $dir, '/\\');
             }
+
             $dir = dirname($dir);
         }
 
-        // 3. Fallback final
-        $cwd = getcwd();
-        return $root = rtrim($cwd !== false ? $cwd : '.', '/\\');
+        // 4. Último fallback
+        return $root = rtrim(getcwd() ?: '.', '/\\');
     }
 
     public static function Env($key) { 

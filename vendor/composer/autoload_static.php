@@ -101,6 +101,7 @@ class ComposerStaticInitc2ec338e9ddf5e4b8f7d715c74073692
         'Payloads' => __DIR__ . '/../..' . '/src/storage.php',
         'Permissions' => __DIR__ . '/../..' . '/src/permissions.php',
         'Pessoa' => __DIR__ . '/../..' . '/src/structs.php',
+        'PostProcessing' => __DIR__ . '/../..' . '/src/post_processing.php',
         'QB' => __DIR__ . '/../..' . '/src/qb.php',
         'QueryResult' => __DIR__ . '/../..' . '/src/database.php',
         'RedisDriver' => __DIR__ . '/../..' . '/src/cache.php',

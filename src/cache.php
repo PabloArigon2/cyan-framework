@@ -18,6 +18,8 @@ interface ICacheDriver {
     public function flush(): bool;
     public function allowClass(string $string): bool;
     public function removeClass(string $string): bool;
+    public function append(string $key, $value, bool $secure = false): bool;
+    public function read(string $key, bool $secured = false): array;
 }
 
 /**
@@ -89,6 +91,50 @@ final class MemoryDriver implements ICacheDriver {
     use CacheHelper;
     private static array $storage = [];
     private string $prefix = "";
+
+    public function append(string $key, $value, bool $secure = false): bool {
+        if ($value === null) return false;
+
+        if (!isset(self::$storage[$key])) {
+            self::$storage[$key] = [];
+        }
+
+        $data = [
+            'value' => $secure
+                ? base64_encode($this->pack($value, $secure))
+                : $value,
+            'time' => time()
+        ];
+
+        self::$storage[$key][] = $data;
+
+        return true;
+    }
+
+    public function read(string $key, bool $secure = false): array {
+        if (empty(self::$storage[$key])) return [];
+
+        $result = [];
+
+        foreach (self::$storage[$key] as $item) {
+            $value = $item['value'] ?? null;
+
+            if ($secure && $value !== null) {
+                $decoded = base64_decode($value, true);
+
+                if ($decoded === false) continue;
+
+                $value = $this->unpack($decoded, true);
+            }
+
+            $result[] = [
+                'value' => $value,
+                'time'  => $item['time'] ?? null
+            ];
+        }
+
+        return $result;
+    }
 
     public function setPrefix(string $string): bool {
         if (!empty($string)) {
@@ -177,6 +223,35 @@ final class FileDriver implements ICacheDriver {
         return $this->unpack($envelope['value'] ?? null, $secured);
     }
 
+    public function read(string $key, bool $secured = false): array {
+        $file = $this->getFilename($key);
+
+        if (!file_exists($file)) return [];
+
+        $lines = file($file, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+
+        $result = [];
+
+        foreach ($lines as $line) {
+            $data = json_decode($line, true);
+
+            if (!$data) continue;
+
+            $value = $data['value'] ?? null;
+
+            if ($secured && $value !== null) {
+                $value = $this->unpack(base64_decode($value), true);
+            }
+
+            $result[] = [
+                'value' => $value,
+                'time'  => $data['time'] ?? null
+            ];
+        }
+
+        return $result;
+    }
+
     public function set(string $key, $value, int $ttl, bool $secure = false): bool {
         if ($value === null) return false;
         $file = $this->getFilename($key);
@@ -185,6 +260,29 @@ final class FileDriver implements ICacheDriver {
             'expire' => ($ttl === 0) ? 0 : (time() + $ttl)
         ];
         return file_put_contents($file, serialize($envelope), LOCK_EX) !== false;
+    }
+
+    public function append(string $key, $value, bool $secure = false): bool {
+        if ($value === null) return false;
+
+        $file = $this->getFilename($key);
+
+        $data = [
+            'value' => $secure
+                ? base64_encode($this->pack($value, true))
+                : $value,
+            'time' => time()
+        ];
+
+        $encoded = json_encode($data, JSON_UNESCAPED_UNICODE);
+
+        if ($encoded === false) return false;
+
+        return file_put_contents(
+            $file,
+            $encoded . PHP_EOL,
+            FILE_APPEND | LOCK_EX
+        ) !== false;
     }
 
     public function forget(string $key): bool {
@@ -212,6 +310,50 @@ final class RedisDriver implements ICacheDriver {
     use CacheHelper;
     private $redis;
     private string $prefix;
+
+    public function append(string $key, $value, bool $secure = false): bool {
+        if ($value === null) return false;
+
+        $data = [
+            'value' => $secure
+                ? base64_encode($this->pack($value, true))
+                : $value,
+            'time' => time()
+        ];
+
+        $encoded = json_encode($data, JSON_UNESCAPED_UNICODE);
+
+        if ($encoded === false) return false;
+
+        return $this->redis->rPush($this->prefix . $key, $encoded) > 0;
+    }
+
+    public function read(string $key, bool $secure = false): array {
+        $items = $this->redis->lRange($this->prefix . $key, 0, -1);
+
+        if (!$items) return [];
+
+        $result = [];
+
+        foreach ($items as $item) {
+            $data = json_decode($item, true);
+
+            if (!$data) continue;
+
+            $value = $data['value'] ?? null;
+
+            if ($secure && $value !== null) {
+                $value = $this->unpack(base64_decode($value), true);
+            }
+
+            $result[] = [
+                'value' => $value,
+                'time'  => $data['time'] ?? null
+            ];
+        }
+
+        return $result;
+    }
 
     public function allowClass(string $string): bool {
         return $this->addAllowedClass($string);
@@ -290,64 +432,141 @@ para o redis funcionar, precisa de um servidor, o recomendado seria instala-lo e
 /**
  * Cache - Facade Principal
  */
-final class Cache {
-    private static ?ICacheDriver $instance = null;
 
-    public static function init(string $driver, array $config = []) {
+class Cache {
+    private ?ICacheDriver $instance = null;
+
+    public static function init(string $driver, array $config = []) : self {
+
+        $cache = new self();
 
         if ($driver == Driver::REDIS and !extension_loaded("redis"))
             $driver = Driver::FILE;
 
         switch (strtolower($driver)) {
             case Driver::REDIS:
-                self::$instance = new RedisDriver($config);
+                $cache->instance = new RedisDriver($config);
                 break;
             case Driver::FILE:
-                self::$instance = new FileDriver($config);
+                $cache->instance = new FileDriver($config);
                 break;
             case Driver::MEMORY:
             default:
-                self::$instance = new MemoryDriver();
+                $cache->instance = new MemoryDriver();
                 break;
         }
+
+        return $cache;
     }
 
-    private static function getDriver(): ICacheDriver {
-        if (self::$instance === null) {
-            self::$instance = new MemoryDriver();
+    private function getDriver(): ICacheDriver {
+        if ($this->instance === null) {
+            $this->instance = new MemoryDriver();
         }
-        return self::$instance;
+        return $this->instance;
     }
 
-    public static function allowClass(string $string): bool {
-        return self::getDriver()->allowClass($string);
+    public function allowClass(string $string): bool {
+        return $this->getDriver()->allowClass($string);
     }
 
-    public static function removeClass(string $string): bool {
-        return self::getDriver()->removeClass($string);
+    public function removeClass(string $string): bool {
+        return $this->getDriver()->removeClass($string);
     }
 
-    public static function get(string $key, bool $secured = false) {
-        return self::getDriver()->get($key, $secured);
+    public function get(string $key, bool $secured = false) {
+        return $this->getDriver()->get($key, $secured);
     }
 
-    public static function set(string $key, $value, int $ttl = 3600, bool $secure = false): bool {
-        return self::getDriver()->set($key, $value, $ttl, $secure);
+    public function set(string $key, $value, int $ttl = 3600, bool $secure = false): bool {
+        return $this->getDriver()->set($key, $value, $ttl, $secure);
     }
 
-    public static function forget(string $key): bool {
-        return self::getDriver()->forget($key);
+    public function forget(string $key): bool {
+        return $this->getDriver()->forget($key);
     }
 
-    public static function flush(): bool {
-        return self::getDriver()->flush();
+    public function flush(): bool {
+        return $this->getDriver()->flush();
     }
 
-    public static function remember(string $key, int $ttl, callable $callback, bool $secure = false) {
-        $value = self::get($key, $secure);
+    public function append(string $key, $value, bool $secure = false): bool {
+        return $this->getDriver()->append($key, $value, $secure);
+    }
+
+    public function read(string $key, bool $secure = false): array {
+        return $this->getDriver()->read($key, $secure);
+    }
+
+    public function remember(string $key, int $ttl, callable $callback, bool $secure = false) {
+        $value = $this->get($key, $secure);
         if ($value !== null) return $value;
         $value = $callback();
-        self::set($key, $value, $ttl, $secure);
+        $this->set($key, $value, $ttl, $secure);
         return $value;
     }
 }
+
+// final class Cache {
+//     private static ?ICacheDriver $instance = null;
+
+//     public static function init(string $driver, array $config = []) {
+
+//         if ($driver == Driver::REDIS and !extension_loaded("redis"))
+//             $driver = Driver::FILE;
+
+//         switch (strtolower($driver)) {
+//             case Driver::REDIS:
+//                 self::$instance = new RedisDriver($config);
+//                 break;
+//             case Driver::FILE:
+//                 self::$instance = new FileDriver($config);
+//                 break;
+//             case Driver::MEMORY:
+//             default:
+//                 self::$instance = new MemoryDriver();
+//                 break;
+//         }
+//     }
+
+//     private static function getDriver(): ICacheDriver {
+//         if (self::$instance === null) {
+//             self::$instance = new MemoryDriver();
+//         }
+//         return self::$instance;
+//     }
+
+//     public static function allowClass(string $string): bool {
+//         return self::getDriver()->allowClass($string);
+//     }
+
+//     public static function removeClass(string $string): bool {
+//         return self::getDriver()->removeClass($string);
+//     }
+
+//     public static function get(string $key, bool $secured = false) {
+//         return self::getDriver()->get($key, $secured);
+//     }
+
+//     public static function set(string $key, $value, int $ttl = 3600, bool $secure = false): bool {
+//         return self::getDriver()->set($key, $value, $ttl, $secure);
+//     }
+
+//     public static function forget(string $key): bool {
+//         return self::getDriver()->forget($key);
+//     }
+
+//     public static function flush(): bool {
+//         return self::getDriver()->flush();
+//     }
+
+//     public static function remember(string $key, int $ttl, callable $callback, bool $secure = false) {
+//         $value = self::get($key, $secure);
+//         if ($value !== null) return $value;
+//         $value = $callback();
+//         self::set($key, $value, $ttl, $secure);
+//         return $value;
+//     }
+// }
+
+?>

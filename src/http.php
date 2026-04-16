@@ -28,6 +28,41 @@ final class Http {
         ];
     }
 
+    public static function CloserRequisition2(callable $callback) {
+        ob_start();
+
+        $size = ob_get_length();
+        header("Content-Length: $size");
+        header("Connection: close");
+        ob_end_flush();
+        @ob_flush();
+        flush();
+
+        // A partir daqui o cliente já recebeu a resposta
+        $callback(); // post-processing
+    }
+
+    public static function CloseRequisition(callable $callback): void
+    {
+        ignore_user_abort(true); // deve vir primeiro
+
+        // Garante que há um buffer ativo
+        if (ob_get_level() === 0) {
+            ob_start();
+        }
+
+        $length = ob_get_length();
+
+        header('Content-Length: ' . ($length ?: 0));
+        header('Connection: close');
+
+        ob_end_flush(); // despeja o buffer interno do PHP
+        flush();        // força o envio pelo servidor (Apache/nginx)
+
+        // Callback roda aqui, depois do flush — cliente já recebeu a resposta
+        $callback();
+    }
+
     public static function Response($headers, $result, $code = 200) {
         foreach($headers as $header => $value) { header($header.": ".$value); }
         http_response_code($code);
@@ -39,6 +74,12 @@ final class Http {
         } else {
             echo is_array($result) ? json_encode($result) : $result;
         }
+
+        session_write_close();
+        
+        if (function_exists("fastcgi_finish_request"))
+            fastcgi_finish_request();
+
         exit();
     }
 

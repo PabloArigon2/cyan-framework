@@ -70,6 +70,7 @@ return array(
     'Payloads' => $baseDir . '/src/storage.php',
     'Permissions' => $baseDir . '/src/permissions.php',
     'Pessoa' => $baseDir . '/src/structs.php',
+    'PostProcessing' => $baseDir . '/src/post_processing.php',
     'QB' => $baseDir . '/src/qb.php',
     'QueryResult' => $baseDir . '/src/database.php',
     'RedisDriver' => $baseDir . '/src/cache.php',

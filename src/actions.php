@@ -1,6 +1,6 @@
 <?php
 
-use Security as S;
+ob_start();
 
 define("TEMP_PATH", sys_get_temp_dir() . "/" . (Utils::Env("APP_SLUG") ?? "cyan"));
 ActionHelper::SetupCors();
@@ -181,7 +181,7 @@ class Action {
             }
 
             $body = [];
-            $headers = empty(getallheaders()) ? null : S::Encrypt(JSON::Encode(getallheaders()));
+            $headers = empty(getallheaders()) ? null : Security::Encrypt(JSON::Encode(getallheaders()));
 
             foreach($availableArgs as $key => $arg) {
                 if (empty($key) or empty($arg) or in_array($key, [ 'tenant', 'bound', 'files', 'payloads', 'env' ])) continue;
@@ -193,7 +193,7 @@ class Action {
                 $body[$key] = $arg;
             }
             
-            $logID = Logs::Create()->setAcao($action)->setFile($fpath)->setMethod($method)->setBody(S::Encrypt(JSON::Encode($body)), $headers)->setStatus(1)->send();
+            $logID = Logs::Create()->setAcao($action)->setFile($fpath)->setMethod($method)->setBody(Security::Encrypt(JSON::Encode($body)), $headers)->setStatus(1)->send();
             self::$logs[] = $logID;
 
             $ref->invokeArgs($args);

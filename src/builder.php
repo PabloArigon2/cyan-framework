@@ -250,6 +250,7 @@ class Context {
     public $NodeServer = false;
     public $ApiRequest = false;
     public $ParentID = null;
+    public $Bypassed = false;
 
     public function Validate($data) : bool {
         if (empty($this) or empty($data)) return false;

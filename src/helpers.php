@@ -117,6 +117,168 @@ final class InputResolver {
 
 final class ActionHelper {
 
+    static $bypassed = [
+        // Arquivos
+        'login.php',
+        'cadastro.php',
+        'auth.php',
+
+        // Pastas
+        '/mobile/',
+        '/assets/',
+        '/public/',
+
+        // Rotas API
+        '/api/auth/login',
+        '/api/auth/register',
+    ];
+
+    static $actionEntrypoints = [
+        '/api/',
+        '/mobile/'
+    ];
+
+    public static function AddEntrypoint(string|array $path) {
+        if (empty($path)) return;
+
+        if (is_string($path)) {
+            if (!in_array($path, self::$actionEntrypoints, true)) {
+                self::$actionEntrypoints[] = $path;
+            }
+        }
+        else {
+            self::$actionEntrypoints = array_values(array_unique(array_merge(self::$actionEntrypoints, $path)));
+        }        
+
+        // if (is_string($path)) {
+        //     if (!in_array($path, self::$bypassed, true)) {
+        //         $path = strtolower(trim($path));
+        //         self::$bypassed[] = $path;
+        //     }
+        // }
+        // else {
+        //     $path = array_map(function($val) {
+        //         return strtolower(trim($val));
+        //     }, $path);
+        //     self::$bypassed = array_values(array_unique(array_merge(self::$bypassed, $path)));
+        // }
+    }
+
+    public static function DelEntrypoint(string $path) {
+       $key = array_search($path, self::$actionEntrypoints, true);
+
+        if ($key !== false) {
+            unset(self::$actionEntrypoints[$key]);
+            self::$actionEntrypoints = array_values(self::$actionEntrypoints);
+            return true;
+        }
+
+        return false;
+    }
+
+    public static function ShouldRunActions(): bool
+    {
+        $uri = strtolower(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) ?? '');
+
+        if (!str_starts_with($uri, '/')) {
+            $uri = '/' . $uri;
+        }
+
+        foreach (self::$actionEntrypoints as $entry) {
+            if (str_starts_with($uri, $entry)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public static function AddBypass(string|array $path) {
+        if (empty($path)) return;
+
+        if (is_string($path)) {
+            if (!in_array($path, self::$bypassed, true)) {
+                self::$bypassed[] = $path;
+            }
+        }
+        else {
+            self::$bypassed = array_values(array_unique(array_merge(self::$bypassed, $path)));
+        }        
+
+        // if (is_string($path)) {
+        //     if (!in_array($path, self::$bypassed, true)) {
+        //         $path = strtolower(trim($path));
+        //         self::$bypassed[] = $path;
+        //     }
+        // }
+        // else {
+        //     $path = array_map(function($val) {
+        //         return strtolower(trim($val));
+        //     }, $path);
+        //     self::$bypassed = array_values(array_unique(array_merge(self::$bypassed, $path)));
+        // }
+    }
+
+    public static function DelBypass(string $path) {
+       $key = array_search($path, self::$bypassed, true);
+
+        if ($key !== false) {
+            unset(self::$bypassed[$key]);
+            self::$bypassed = array_values(self::$bypassed);
+            return true;
+        }
+
+        return false;
+    }
+
+    public static function IsBypassed(): bool
+    {
+        $uri  = strtolower(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) ?? '');
+        $file = strtolower(basename($_SERVER['SCRIPT_FILENAME'] ?? ''));
+        $path = strtolower(str_replace('\\', '/', $_SERVER['SCRIPT_FILENAME'] ?? ''));
+
+        if (!str_starts_with($uri, '/')) {
+            $uri = '/' . $uri;
+        }
+
+        foreach (self::$bypassed as $rule) {
+            $rule = strtolower(trim($rule));
+
+            if (empty($rule)) continue;
+
+            // 1. Wildcard de prefixo ANTES de diretório (fix ponto 1)
+            // ex: "/api/public/*"
+            if (str_ends_with($rule, '/*')) {
+                $prefix = rtrim($rule, '*'); // "/api/public/"
+                if (str_starts_with($uri, $prefix)) return true;
+                continue;
+            }
+
+            // 2. Diretório: barra no final, ex: "/assets/"
+            // fix ponto 2: usa boundary real no path físico
+            if (str_ends_with($rule, '/')) {
+                $segment = trim($rule, '/'); // "assets"
+                if (
+                    str_starts_with($uri, $rule) ||
+                    preg_match('#/' . preg_quote($segment, '#') . '/#', $path)
+                ) return true;
+                continue;
+            }
+
+            // 3. Arquivo: sem barras, ex: "login.php"
+            // fix ponto 3: aceita tanto "login.php" quanto "/login.php" na lista
+            if (!str_contains($rule, '/')) {
+                if ($rule === $file || $uri === '/' . $rule) return true;
+                continue;
+            }
+
+            // 4. Rota exata, ex: "/api/auth/login"
+            if ($uri === $rule) return true;
+        }
+
+        return false;
+    }
+
     public static function GetRequestType() {
         $headers = getallheaders();
 
@@ -139,22 +301,6 @@ final class ActionHelper {
         }
 
         return false;
-    }
-
-    public static function IsBypassed() {
-        $base = basename($_SERVER['SCRIPT_FILENAME']);
-        $path = $_SERVER['SCRIPT_FILENAME'];
-
-        if ((str_contains(strtolower($path), (strtolower("api/".$base))) or 
-            str_contains(strtolower($path), ("/api/"))) and 
-            !str_contains(strtolower($path), "/login.php") and 
-            !str_contains(strtolower($path), "/cadastro.php") and
-            !str_contains(strtolower($path), "/auth.php") and
-            !str_contains(strtolower($path), "/mobile/")) {
-            return false;
-        }
-
-        return true;
     }
 
     public static function GetHeaders() {

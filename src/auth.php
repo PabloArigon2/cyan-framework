@@ -11,6 +11,9 @@ final class Auth {
         if (empty($headers['Authorization'])) {
             $user = Auth::CurrentUser();
 
+            if (!$user or empty($user))
+                return [ "Auth" => false, "Tenant" => null, "Environment" => $envUse ];
+
             $validatedSession = true;
 
             $tenant = new Context();

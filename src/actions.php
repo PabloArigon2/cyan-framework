@@ -10,9 +10,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
-if (ActionHelper::IsBypassed())
-    return;
-
 if (ActionHelper::IsDocumentPreview())
     return;
 
@@ -20,13 +17,21 @@ $base = basename($_SERVER['SCRIPT_FILENAME']);
 $path = $_SERVER['SCRIPT_FILENAME'];
 $auth = false;
 
-$auth = Auth::AuthenticateRequest();
+if (!ActionHelper::IsBypassed()) {
+    $auth = Auth::AuthenticateRequest();
 
-if (!$auth['Auth'])
-    ApiResponse::GetCallback()->setStatus(0)->setHttpCode(401)->setError($auth['Environment'] == "user_tenant" ? "Não foi possível autenticar usuário!" : "Token de autorização é inválido!")->setJSON()->run();
+    if (!$auth['Auth'])
+        ApiResponse::GetCallback()->setStatus(0)->setHttpCode(401)->setError($auth['Environment'] == "user_tenant" ? "Não foi possível autenticar usuário!" : "Token de autorização é inválido!")->setJSON()->run();
 
-if (!empty($auth['IsDocPreview'])) {
-    return;
+    if (!empty($auth['IsDocPreview'])) {
+        return;
+    }
+}
+else {
+    $ctx = new Context();
+    $ctx->Bypassed = true;
+
+    $auth = [ "Auth" => true, "Tenant" => $ctx, "Environment" => "bypassed" ];
 }
 
 $requestData = ActionHelper::GetRequestType();
@@ -87,6 +92,7 @@ $availableArgs = [
     "tenant" => $auth['Tenant'] ?? null,
     "bound" => $auth['Tenant'] ?? null,
     "context" => $auth['Tenant'] ?? null,
+    "ctx" => $auth['Tenant'] ?? null,
     "env" => $dr
 ];
 
@@ -154,7 +160,7 @@ class Action {
             foreach($ref->getParameters() as $parameter) {
                 $param = $parameter->getName();
 
-                if ($param == "tenant" or $param == "bound") {
+                if ($param == "tenant" or $param == "bound" or $param == "ctx" or $param == "context") {
                     $containsTenant = true;
                 }
 
@@ -179,14 +185,14 @@ class Action {
                 }
             }
 
-            if (!$containsTenant && $base !== "login.php" && $base !== "auth.php" and !str_contains($path, "/mobile/")) {
+            if (!$containsTenant && !ActionHelper::IsBypassed()) {
                 ApiResponse::GetCallback()->setStatus(0)->setError("tenant not found for $action -> $method")->setMensagem("Ocorreu um erro ao executar ação!")->run();
             }
 
             $appSlug = Utils::Env('APP_SLUG') ?? 'cyan';
             $fpath = preg_replace('/^.*' . preg_quote($appSlug, '/') . '[\/\\\\]/', '', $path);
 
-            if (empty($auth['Tenant'])) {
+            if (empty($auth['Tenant']) && !ActionHelper::IsBypassed()) {
                 ApiResponse::GetCallback()->setStatus(0)->setError("Tenant context missing for action: $action")->setMensagem("Requisição inválida: contexto não identificado.")->run();
             }
 
@@ -194,7 +200,7 @@ class Action {
             $headers = empty(getallheaders()) ? null : Security::Encrypt(JSON::Encode(getallheaders()));
 
             foreach($availableArgs as $key => $arg) {
-                if (empty($key) or empty($arg) or in_array($key, [ 'tenant', 'bound', 'files', 'payloads', 'env' ])) continue;
+                if (empty($key) or empty($arg) or in_array($key, [ 'tenant', 'bound', 'ctx', 'context', 'files', 'payloads', 'env' ])) continue;
 
                 if (in_array($key, [ 'query' ]) and isset($body['query'])) continue;
                 if (in_array($key, [ 'body', 'data', 'fields' ]) and (isset($body['body']) or isset($body['data']) or isset($body['fields']))) continue;
@@ -216,14 +222,13 @@ class Action {
 
 register_shutdown_function(function() {
     global $path, $base;
-    if ((str_contains(strtolower($path), (strtolower("api/".$base))) or str_contains(strtolower($path), ("/api/")) or str_contains(strtolower($path), ("/mobile/")))) {
+    if (ActionHelper::ShouldRunActions()) {
         Action::Run();
 
         foreach(PayloadRegistry::all() as $payload) {
             ActionHelper::DisposePayload($payload);
         }
     }
-        
 });
 
 ?>

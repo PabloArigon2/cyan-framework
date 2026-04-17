@@ -23,7 +23,12 @@ final class Env {
         $val = $_ENV[$key];
 
         if ($json) {
-            $val = json_decode($val, true);
+            try {
+                $val = json_decode($val, true) ?? [];
+            }
+            catch(Throwable $ex) {
+                $val = [];
+            }
         }
         
         return $val;

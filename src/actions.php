@@ -2,7 +2,8 @@
 
 ob_start();
 
-ActionHelper::SetFrontend("/main/");
+$paths = Config::Get("app", "frontend", "paths") ?? [];
+ActionHelper::SetFrontend($paths);
 
 if (ActionHelper::IsFrontend())
     return;

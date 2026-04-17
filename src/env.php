@@ -16,10 +16,17 @@ final class Env {
         return self::$loaded;
     }
 
-    public static function Get($key) {
+    public static function Get($key, bool $json = false) {
         if (!self::$loaded) return null;
         if (!isset($_ENV[$key])) return null;
-        return $_ENV[$key];
+
+        $val = $_ENV[$key];
+
+        if ($json) {
+            $val = json_decode($val, true);
+        }
+        
+        return $val;
     }
 }
 

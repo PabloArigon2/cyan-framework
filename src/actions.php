@@ -2,6 +2,11 @@
 
 ob_start();
 
+ActionHelper::SetFrontend("/main/");
+
+if (ActionHelper::IsFrontend())
+    return;
+
 define("TEMP_PATH", sys_get_temp_dir() . "/" . (Utils::Env("APP_SLUG") ?? "cyan"));
 ActionHelper::SetupCors();
 

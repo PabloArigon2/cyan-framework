@@ -138,6 +138,97 @@ final class ActionHelper {
         '/mobile/'
     ];
 
+    static $frontend = [
+        '/main/',
+        '/pages/'
+    ];
+
+    public static function SetFrontend(string|array $path) {
+        if (empty($path)) return;
+
+        if (is_string($path)) {
+            if (!in_array($path, self::$frontend, true)) {
+                self::$frontend[] = $path;
+            }
+        }
+        else {
+            self::$frontend = array_values(array_unique(array_merge(self::$frontend, $path)));
+        }        
+
+        // if (is_string($path)) {
+        //     if (!in_array($path, self::$bypassed, true)) {
+        //         $path = strtolower(trim($path));
+        //         self::$bypassed[] = $path;
+        //     }
+        // }
+        // else {
+        //     $path = array_map(function($val) {
+        //         return strtolower(trim($val));
+        //     }, $path);
+        //     self::$bypassed = array_values(array_unique(array_merge(self::$bypassed, $path)));
+        // }
+    }
+
+    public static function DelFrontend(string $path) {
+       $key = array_search($path, self::$frontend, true);
+
+        if ($key !== false) {
+            unset(self::$frontend[$key]);
+            self::$frontend = array_values(self::$frontend);
+            return true;
+        }
+
+        return false;
+    }
+
+    public static function IsFrontend(): bool
+    {
+        $uri  = strtolower(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) ?? '');
+        $file = strtolower(basename($_SERVER['SCRIPT_FILENAME'] ?? ''));
+        $path = strtolower(str_replace('\\', '/', $_SERVER['SCRIPT_FILENAME'] ?? ''));
+
+        if (!str_starts_with($uri, '/')) {
+            $uri = '/' . $uri;
+        }
+
+        foreach (self::$frontend as $rule) {
+            $rule = strtolower(trim($rule));
+
+            if (empty($rule)) continue;
+
+            // 1. Wildcard de prefixo ANTES de diretório (fix ponto 1)
+            // ex: "/api/public/*"
+            if (str_ends_with($rule, '/*')) {
+                $prefix = rtrim($rule, '*'); // "/api/public/"
+                if (str_starts_with($uri, $prefix)) return true;
+                continue;
+            }
+
+            // 2. Diretório: barra no final, ex: "/assets/"
+            // fix ponto 2: usa boundary real no path físico
+            if (str_ends_with($rule, '/')) {
+                $segment = trim($rule, '/'); // "assets"
+                if (
+                    str_starts_with($uri, $rule) ||
+                    preg_match('#/' . preg_quote($segment, '#') . '/#', $path)
+                ) return true;
+                continue;
+            }
+
+            // 3. Arquivo: sem barras, ex: "login.php"
+            // fix ponto 3: aceita tanto "login.php" quanto "/login.php" na lista
+            if (!str_contains($rule, '/')) {
+                if ($rule === $file || $uri === '/' . $rule) return true;
+                continue;
+            }
+
+            // 4. Rota exata, ex: "/api/auth/login"
+            if ($uri === $rule) return true;
+        }
+
+        return false;
+    }
+
     public static function AddEntrypoint(string|array $path) {
         if (empty($path)) return;
 

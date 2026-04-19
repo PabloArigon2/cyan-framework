@@ -117,7 +117,7 @@ final class Url {
         if (!empty($appSlug) && ($url == "localhost" || $url == "127.0.0.1")) {
             $url .= "/" . $appSlug;
         }
-        return $protocol . "://" . $url;
+        return $protocol . "://" . $url . (($url == "localhost" or $url == "127.0.0.1") ? '/ecoglobal' : '');
     }
 
     public static function getFullUrl() {

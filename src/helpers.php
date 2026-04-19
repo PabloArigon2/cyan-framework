@@ -24,14 +24,14 @@ class FunctionReturn {
 }
 
 class Request {
-    public string $action = "";
-    public string $id = "";
-    public string $method = "";
-    public string $rawInput = "";
+    public ?string $action = "";
+    public ?string $id = "";
+    public ?string $method = "";
+    public ?string $rawInput = "";
     public ?Payloads $payloads = null;
     public bool $hasPayloads = false;
-    public string $payloadID = "";
-    public array $body = [];
+    public ?string $payloadID = "";
+    public ?array $body = [];
 
     public static function Get() : self {
         $action = (!empty($_GET['action'])) ? $_GET['action'] : ((!empty($_GET['acao'])) ? $_GET['acao'] : null);
@@ -111,6 +111,7 @@ final class InputResolver {
             }
         }
 
+        $req->body = $data;
         return FunctionReturn::Create(true, values: [ 'Data' => $data ]);
     }
 }
@@ -270,6 +271,20 @@ final class ActionHelper {
     public static function ShouldRunActions(): bool
     {
         $uri = strtolower(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) ?? '');
+
+        $ip = $_SERVER['REMOTE_ADDR'];
+        $domain = $_SERVER['SERVER_NAME'];
+
+        $rootFolder = Utils::RootFolder();
+        $rootFolder = explode('\\', $rootFolder);
+        $rootFolder = trim($rootFolder[count($rootFolder) - 1]);
+        $rootFolder = rtrim($rootFolder);
+
+        if ($domain == "localhost" or $domain == '0.0.0.0' or $domain == '127.0.0.1') {
+            if (str_contains($uri, $rootFolder)) {
+                $uri = str_replace([ "/$rootFolder", $rootFolder ], [ "", "" ], $uri);
+            }
+        }
 
         if (!str_starts_with($uri, '/')) {
             $uri = '/' . $uri;

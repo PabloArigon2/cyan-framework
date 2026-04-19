@@ -152,11 +152,9 @@ class Action {
         $ref->invokeArgs($args);
     }
 
-    public static function Run() {
-        global $action, $auth, $method, $availableArgs, $path, $base;
-
-        if (!empty(self::$actions[$method][$action])) {
-            $ref = new ReflectionFunction(self::$actions[$method][$action]);
+    public static function Run(Request $request, ?array $availArgs) {
+        if (!empty(self::$actions[$request->method][$request->action])) {
+            $ref = new ReflectionFunction(self::$actions[$request->method][$request->action]);
 
             $args = [];
             $arguments = [];
@@ -170,11 +168,11 @@ class Action {
                     $containsTenant = true;
                 }
 
-                if (isset($availableArgs[$param])) {
-                    $args[] = $availableArgs[$param];
+                if (isset($availArgs[$param])) {
+                    $args[] = $availArgs[$param];
 
                     if ($param != "files") {
-                        $arg = $availableArgs[$param];
+                        $arg = $availArgs[$param];
 
                         if (gettype($arg) == "string") {
                             $arguments[$param] = $arg;
@@ -192,20 +190,21 @@ class Action {
             }
 
             if (!$containsTenant && !ActionHelper::IsBypassed()) {
-                ApiResponse::GetCallback()->setStatus(0)->setError("tenant not found for $action -> $method")->setMensagem("Ocorreu um erro ao executar ação!")->run();
+                ApiResponse::GetCallback()->setStatus(0)->setError("tenant not found for $request->action -> $request->method")->setMensagem("Ocorreu um erro ao executar ação!")->run();
             }
 
+            $path = $_SERVER['SCRIPT_FILENAME'];            
             $appSlug = Utils::Env('APP_SLUG') ?? 'cyan';
             $fpath = preg_replace('/^.*' . preg_quote($appSlug, '/') . '[\/\\\\]/', '', $path);
-
+            
             if (empty($auth['Tenant']) && !ActionHelper::IsBypassed()) {
-                ApiResponse::GetCallback()->setStatus(0)->setError("Tenant context missing for action: $action")->setMensagem("Requisição inválida: contexto não identificado.")->run();
+                ApiResponse::GetCallback()->setStatus(0)->setError("Tenant context missing for action: $request->action")->setMensagem("Requisição inválida: contexto não identificado.")->run();
             }
 
             $body = [];
             $headers = empty(getallheaders()) ? null : Security::Encrypt(JSON::Encode(getallheaders()));
 
-            foreach($availableArgs as $key => $arg) {
+            foreach($availArgs as $key => $arg) {
                 if (empty($key) or empty($arg) or in_array($key, [ 'tenant', 'bound', 'ctx', 'context', 'files', 'payloads', 'env' ])) continue;
 
                 if (in_array($key, [ 'query' ]) and isset($body['query'])) continue;
@@ -215,21 +214,20 @@ class Action {
                 $body[$key] = $arg;
             }
             
-            $logID = Logs::Create()->setAcao($action)->setFile($fpath)->setMethod($method)->setBody(Security::Encrypt(JSON::Encode($body)), $headers)->setStatus(1)->send();
+            $logID = Logs::Create()->setAcao($request->action)->setFile($fpath)->setMethod($request->method)->setBody(Security::Encrypt(JSON::Encode($body)), $headers)->setStatus(1)->send();
             self::$logs[] = $logID;
 
             $ref->invokeArgs($args);
         }
         else {
-            ApiResponse::GetCallback()->setStatus(0)->setError("action $action ($method) not found.")->setMensagem("Ocorreu um erro ao executar ação!")->run();
+            ApiResponse::GetCallback()->setStatus(0)->setError("action $request->action ($request->method) not found.")->setMensagem("Ocorreu um erro ao executar ação!")->run();
         }
     }
 }
 
-register_shutdown_function(function() {
-    global $path, $base;
+register_shutdown_function(function() use ($availableArgs, $request) {
     if (ActionHelper::ShouldRunActions()) {
-        Action::Run();
+        Action::Run($request, $availableArgs);
 
         foreach(PayloadRegistry::all() as $payload) {
             ActionHelper::DisposePayload($payload);

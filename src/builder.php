@@ -144,6 +144,9 @@ class User {
             $propertyName = $property->getName();
             $propertyValue = $property->getValue($this);
 
+            if (is_string($propertyValue) and !mb_check_encoding($propertyValue, 'UTF-8'))
+                continue;
+
             $snakeCase = function($input) {
                 // Encontra todas as letras maiúsculas e adiciona um '_' antes delas
                 $snakeCase = preg_replace('/(?<=[a-z])([A-Z])/', '_$1', $input);

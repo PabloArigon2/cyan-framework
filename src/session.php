@@ -104,6 +104,9 @@ final class Session {
             );
         }
 
+        if (isset($_COOKIE[session_name()])) 
+            unset($_COOKIE[session_name()]);
+
         if (session_status() === PHP_SESSION_ACTIVE) {
             session_destroy();
         }

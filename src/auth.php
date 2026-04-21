@@ -59,14 +59,19 @@ final class Auth {
     }
 
     public static function CurrentUser() : User|null {
-        if (session_status() === PHP_SESSION_NONE)
-            session_start();
+        try {
+            if (session_status() === PHP_SESSION_NONE)
+                session_start();
 
-        if (empty($_SESSION['userid'])) {
+            if (empty($_SESSION['userid'])) {
+                return null;
+            }
+
+            return Auth::GetUserData($_SESSION['userid']);
+        }
+        catch (Throwable $ex) {
             return null;
         }
-
-        return Auth::GetUserData($_SESSION['userid']);
     }
 
     public static function GetUser($id = null) {

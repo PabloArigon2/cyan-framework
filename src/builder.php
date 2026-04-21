@@ -101,21 +101,21 @@ public static function Build($arr) : self {
 */
 
 class User {
-    public string $DisplayName = "";
-    public string $MemberID = "";
-    public string $Nome = "";
-    public string $Titulo = "";
-    public string $CPF = "";
-    public string $CNPJ = "";
-    public string $Email = "";
-    public string $DataNascimento = "";
-    public string $Telefone1 = "";
-    public string $Telefone2 = "";
-    public string $Imagem = "";
-    public string $BannerImagem = "";
-    public string $Sexo = "";
-    public string $RG = "";
-    public string $AboutMe = "";
+    public ?string $DisplayName = "";
+    public ?string $MemberID = "";
+    public ?string $Nome = "";
+    public ?string $Titulo = "";
+    public ?string $CPF = "";
+    public ?string $CNPJ = "";
+    public ?string $Email = "";
+    public ?string $DataNascimento = "";
+    public ?string $Telefone1 = "";
+    public ?string $Telefone2 = "";
+    public ?string $Imagem = "";
+    public ?string $BannerImagem = "";
+    public ?string $Sexo = "";
+    public ?string $RG = "";
+    public ?string $AboutMe = "";
     public $Endereco = [
         "CEP" => "",
         "Estado" => "",
@@ -127,10 +127,10 @@ class User {
     ];
 
     //System Data
-    public int $ID = 0;
-    public string $Identifier = "";
-    public string $Usuario = "";
-    public int $ParentID = 0;
+    public ?int $ID = 0;
+    public ?string $Identifier = "";
+    public ?string $Usuario = "";
+    public ?int $ParentID = 0;
 
     public function ToJson($camelSnake = false) {
         $data = [];

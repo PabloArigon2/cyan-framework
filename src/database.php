@@ -182,7 +182,7 @@ class Database
             `parent_type` ENUM(".((!empty($parentTypeEnum)) ? implode(", ", $parentTypeEnum) : "empresa, none").") NOT NULL DEFAULT 'none' COLLATE 'utf8mb4_general_ci',
             PRIMARY KEY (`id`) USING BTREE,
             INDEX `fk_key_userid` (`user_id`) USING BTREE,
-            CONSTRAINT `fk_key_userid` FOREIGN KEY (`user_id`) REFERENCES `usuarios` (`id`) ON UPDATE CASCADE ON DELETE RESTRICT
+            CONSTRAINT `fk_key_userid` FOREIGN KEY (`user_id`) REFERENCES `usuarios` (`id`) ON UPDATE CASCADE ON DELETE CASCADE
         )
         COLLATE='utf8mb4_general_ci'
         ENGINE=InnoDB

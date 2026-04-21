@@ -166,6 +166,7 @@ class User {
     public static function Build($arr) : self {
 
         if (empty($arr)) return new self();
+        if (!is_array($arr)) return new self();
 
         $data = new self();
         $normalizedArr = [];

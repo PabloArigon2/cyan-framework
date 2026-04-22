@@ -11,36 +11,6 @@
     "autoload": {
         "classmap": [
             "src/"
-        ],
-        "files": [
-            "src/utils.php",
-            "src/auth.php",
-            "src/http.php",
-            "src/geodata.php",
-            "src/str.php",
-            "src/color.php",
-            "src/devices.php",
-            "src/post_processing.php",
-            "src/cache.php",
-            "src/formatter.php",
-            "src/math.php",
-            "src/locale.php",
-            "src/structs.php",
-            "src/response.php",
-            "src/qb.php",
-            "src/database.php",
-            "src/cryptography.php",
-            "src/builder.php",
-            "src/storage.php",
-            "src/firewall.php",
-            "src/actions.php",
-            "src/logs.php",
-            "src/permissions.php",
-            "src/debug.php",
-            "src/gov.php",
-            "src/router.php",
-            "src/session.php",
-            "src/env.php"
         ]
     }
 }

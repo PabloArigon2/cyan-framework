@@ -6,37 +6,6 @@ namespace Composer\Autoload;
 
 class ComposerStaticInitc2ec338e9ddf5e4b8f7d715c74073692
 {
-    public static $files = array (
-        'dc1f02579e53085b256b7b813e7509e6' => __DIR__ . '/../..' . '/src/utils.php',
-        '0a3698f790b471f83f9c56b9252faac8' => __DIR__ . '/../..' . '/src/auth.php',
-        'e2297a53943516b9fd4e25093f71a736' => __DIR__ . '/../..' . '/src/http.php',
-        '60126043ab5dcc8797fd4b715d7be07f' => __DIR__ . '/../..' . '/src/geodata.php',
-        '860eb082bef145e37296ba09b38b352b' => __DIR__ . '/../..' . '/src/str.php',
-        'bc98a3881b6f137a8cd670c18b98a800' => __DIR__ . '/../..' . '/src/color.php',
-        'a8cc58f21e61cb8d10e149f16a9ccec1' => __DIR__ . '/../..' . '/src/devices.php',
-        '820fd950b2707adbdf34d5c872cd6a71' => __DIR__ . '/../..' . '/src/post_processing.php',
-        'fb06265f2111519aaa6cf1070d1c2278' => __DIR__ . '/../..' . '/src/cache.php',
-        '15a9c498d7894b5795d0f641044666dd' => __DIR__ . '/../..' . '/src/formatter.php',
-        '4f134003aad5e69e1c230c0a7a139445' => __DIR__ . '/../..' . '/src/math.php',
-        'b13a053435be6adf798b0a7a61f1e75d' => __DIR__ . '/../..' . '/src/locale.php',
-        'ef2a47b0de0288a4d4a5700ae03332da' => __DIR__ . '/../..' . '/src/structs.php',
-        '06aa089b1bd5a37632dde48e265c39b9' => __DIR__ . '/../..' . '/src/response.php',
-        '7ab52d37570bc0498d41ec9b91602081' => __DIR__ . '/../..' . '/src/qb.php',
-        '8d33e23fa0badb28113b2388b289c05e' => __DIR__ . '/../..' . '/src/database.php',
-        '590bfc0911f248f7331db1bc84507fa4' => __DIR__ . '/../..' . '/src/cryptography.php',
-        '5d92858ad344891c3226c5c9a648bb66' => __DIR__ . '/../..' . '/src/builder.php',
-        '62ee246a349962dbc3ddbbe465c35b8d' => __DIR__ . '/../..' . '/src/storage.php',
-        '54fa0ff030bf0b4cfb373af89850bfe4' => __DIR__ . '/../..' . '/src/firewall.php',
-        '5334b1cb5e0cdd109865815d77d91aa6' => __DIR__ . '/../..' . '/src/actions.php',
-        '8a51e9aaae3ff9cdf4b903280fba4e37' => __DIR__ . '/../..' . '/src/logs.php',
-        '9f30ce3a5687a183d06be37907386c97' => __DIR__ . '/../..' . '/src/permissions.php',
-        '68a1a47064d1812404ffa1fa36e525f1' => __DIR__ . '/../..' . '/src/debug.php',
-        '12729ed9fd91a48941ac9e85d6c4623b' => __DIR__ . '/../..' . '/src/gov.php',
-        'b246b654e4b89df5a927214b17d7e873' => __DIR__ . '/../..' . '/src/router.php',
-        'c050c17ebe6d7a4e2f9fa72299cf50c2' => __DIR__ . '/../..' . '/src/session.php',
-        'ebdeaedc67db5671854c52767258e1bf' => __DIR__ . '/../..' . '/src/env.php',
-    );
-
     public static $classMap = array (
         'Action' => __DIR__ . '/../..' . '/src/actions.php',
         'ActionHelper' => __DIR__ . '/../..' . '/src/helpers.php',

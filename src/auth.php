@@ -60,14 +60,12 @@ final class Auth {
 
     public static function CurrentUser() : User|null {
         try {
-            if (session_status() === PHP_SESSION_NONE)
-                session_start();
+            $dataset = Session::get("_DATASET");
 
-            if (empty($_SESSION['userid'])) {
-                return null;
-            }
-
-            return Auth::GetUserData($_SESSION['userid']);
+            if (empty($dataset) or !isset($dataset['id']))
+                return new User();
+            
+            return Auth::GetUserData($dataset['id']) ?? new User();
         }
         catch (Throwable $ex) {
             return null;

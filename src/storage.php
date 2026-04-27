@@ -194,7 +194,7 @@ final class FileStreamer
 
     public static function Delete(string $path) {
         if (file_exists($path))
-            unset($path);
+            unlink($path);
     }
 }
 ?>

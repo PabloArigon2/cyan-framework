@@ -152,7 +152,7 @@ class Action {
         $ref->invokeArgs($args);
     }
 
-    public static function Run(Request $request, ?array $availArgs) {
+    public static function Run(Request $request, ?array $availArgs, $auth) {
         if (!empty(self::$actions[$request->method][$request->action])) {
             $ref = new ReflectionFunction(self::$actions[$request->method][$request->action]);
 
@@ -225,9 +225,9 @@ class Action {
     }
 }
 
-register_shutdown_function(function() use ($availableArgs, $request) {
+register_shutdown_function(function() use ($auth, $availableArgs, $request) {
     if (ActionHelper::ShouldRunActions()) {
-        Action::Run($request, $availableArgs);
+        Action::Run($request, $availableArgs, $auth);
 
         foreach(PayloadRegistry::all() as $payload) {
             ActionHelper::DisposePayload($payload);

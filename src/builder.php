@@ -132,6 +132,14 @@ class User {
     public ?string $Usuario = "";
     public ?int $ParentID = 0;
 
+    public function Validate() : bool {
+        if ((empty($this->Nome) and empty($this->CPF) and empty($this->Email)) or empty($this->ID)) {
+            return false;
+        }
+
+        return true;
+    }
+
     public function ToJson($camelSnake = false) {
         $data = [];
         

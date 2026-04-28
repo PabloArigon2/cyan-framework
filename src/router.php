@@ -68,11 +68,8 @@ final class Router {
             $url   = htmlspecialchars("{$moduleName}/{$key}", ENT_QUOTES, 'UTF-8');
 
             echo <<<HTML
-            <li class="menu-item {$isActive}">
-                <a href="{$url}" class="dynamic-trigger" data-target="{$target}">
-                    <i class="fa fa-fw {$icon}"></i>
-                    <span class="ps-2">{$title}</span>
-                </a>
+            <li class="sidebar-nav-item spa-router {$isActive}" target="{$url}">
+                <i class="{$icon}"></i> {$title}
             </li>
             HTML;
         }

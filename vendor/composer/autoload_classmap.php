@@ -84,6 +84,7 @@ return array(
     'Startup' => $baseDir . '/src/startup.php',
     'Str' => $baseDir . '/src/str.php',
     'Stream' => $baseDir . '/src/stream.php',
+    'Tenant' => $baseDir . '/src/builder.php',
     'TokenEnv' => $baseDir . '/src/structs.php',
     'Url' => $baseDir . '/src/http.php',
     'User' => $baseDir . '/src/builder.php',

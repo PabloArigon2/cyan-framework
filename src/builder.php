@@ -233,6 +233,156 @@ class User {
     }
 }
 
+class Tenant {
+    public $ID = 0;
+    public $Identifier = "";
+    public $Descricao = "";    
+    public $CNPJ = "";
+    public $RazaoSocial = "";
+    public $InscricaoMunicipal = "";
+    public $InscricaoEstadual = "";
+    public $Contato = [
+        "Nome" => "",
+        "Funcao" => "",
+        "Telefone" => "",
+        "Email" => ""
+    ];
+    public $Endereco = [
+        "CEP" => "",
+        "Estado" => "",
+        "Cidade" => "",
+        "Endereco" => "",
+        "Numero" => "",
+        "Complemento" => "",
+        "Bairro" => ""
+    ];
+
+    public function IsValid() {
+        return $this->ID == 0 ? false : true;
+    }
+
+    public function ToJson($camelSnake = false) {
+        $data = [];
+        
+        $reflection = new ReflectionClass($this);
+        
+        $properties = $reflection->getProperties(ReflectionProperty::IS_PUBLIC | ReflectionProperty::IS_PROTECTED);
+        
+        foreach ($properties as $property) {
+            $property->setAccessible(true);
+            $propertyName = $property->getName();
+            $propertyValue = $property->getValue($this);
+
+            $snakeCase = function($input) {
+                // Encontra todas as letras maiúsculas e adiciona um '_' antes delas
+                $snakeCase = preg_replace('/(?<=[a-z])([A-Z])/', '_$1', $input);
+                // Remove o underscore inicial se ele existir e converte para minúsculo
+                $snakeCase = ltrim($snakeCase, '_');
+                
+                return strtolower($snakeCase);
+            };
+
+            $data[($camelSnake ? $snakeCase($propertyName) : $propertyName)] = $propertyValue;
+        }
+        
+        return json_encode($data);
+    }
+
+    public function ToArray($camel = false) {
+        return json_decode($this->ToJson($camel), true);
+    }
+
+    public static function Build(array $arr) : self {
+        $data = new self();
+        $normalizedArr = [];
+
+        if (empty($arr)) {
+            return $data;
+        }
+
+        foreach ($arr as $key => $value) {
+            $cleanKey = str_replace('_', '', $key);
+            $normalizedArr[strtolower($cleanKey)] = $value;
+        }
+        
+        $reflection = new ReflectionClass($data);
+        $properties = $reflection->getProperties(ReflectionProperty::IS_PUBLIC);
+        
+        foreach ($properties as $property) {
+            $propertyName = $property->getName();
+            $property->setAccessible(true);
+            
+            $defaultValue = $property->getDefaultValue();
+
+            if (is_array($defaultValue)) {
+                $nestedArray = [];
+                $normalizedPropName = strtolower($propertyName);
+
+                // Prioriza a entrada aninhada (se a array de entrada já estiver no formato correto)
+                if (isset($normalizedArr[$normalizedPropName]) && is_array($normalizedArr[$normalizedPropName])) {
+                    $nestedArray = $normalizedArr[$normalizedPropName];
+                } else {
+                    // Trata a entrada "achatada" com prefixos
+                    foreach ($defaultValue as $nestedKey => $nestedValue) {
+                        $normalizedNestedKey = strtolower($nestedKey);
+                        // A chave esperada no array de entrada é "propriedade-chave"
+                        $prefixedKey = $normalizedPropName . '-' . $normalizedNestedKey;
+                        
+                        if (isset($normalizedArr[$prefixedKey])) {
+                            $nestedArray[$nestedKey] = $normalizedArr[$prefixedKey];
+                        } else {
+                            // Se não encontrar o prefixo, procura pela chave "achatada" sem prefixo
+                            if (isset($normalizedArr[$normalizedNestedKey])) {
+                                $nestedArray[$nestedKey] = $normalizedArr[$normalizedNestedKey];
+                            } else {
+                                $nestedArray[$nestedKey] = $nestedValue;
+                            }
+                        }
+                    }
+                }
+                $property->setValue($data, $nestedArray);
+
+            } else { // É um campo simples
+                if (isset($normalizedArr[strtolower($propertyName)])) {
+                    $property->setValue($data, $normalizedArr[strtolower($propertyName)]);
+                }
+            }
+        }
+        
+        return $data;
+    }
+
+    protected function copyFrom(self $from) : void {
+        if (!($this instanceof self)) {
+            throw new InvalidArgumentException("Copy requer objeto da mesma classe");
+        }
+
+        $reflection = new ReflectionObject($this);
+        $properties = $reflection->getProperties(ReflectionProperty::IS_PUBLIC);
+
+        foreach ($properties as $property) {
+            $name = $property->getName();
+            
+            if (strtolower($name) == "id" or strtolower($name) == "identifier" or
+                strtolower($name) == "status" or strtolower($name) == "tenanttype" or
+                strtolower($name) == "parentid" or strtolower($name) == "isvalid")
+                continue;
+
+            $this->$name = $from->$name;
+        }
+    }
+
+    public function Copy(Tenant $from) {
+        $id = $this->ID;
+        $identifier = $this->Identifier;
+
+        $this->copyFrom($from);
+
+        $this->ID = $id;
+        $this->Identifier = $identifier;
+    }
+}
+
 class Endereco {
     public $ID = "";
     public $CEP = "";

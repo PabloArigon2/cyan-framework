@@ -85,6 +85,7 @@ class ComposerStaticInitc2ec338e9ddf5e4b8f7d715c74073692
         'Startup' => __DIR__ . '/../..' . '/src/startup.php',
         'Str' => __DIR__ . '/../..' . '/src/str.php',
         'Stream' => __DIR__ . '/../..' . '/src/stream.php',
+        'Tenant' => __DIR__ . '/../..' . '/src/builder.php',
         'TokenEnv' => __DIR__ . '/../..' . '/src/structs.php',
         'Url' => __DIR__ . '/../..' . '/src/http.php',
         'User' => __DIR__ . '/../..' . '/src/builder.php',

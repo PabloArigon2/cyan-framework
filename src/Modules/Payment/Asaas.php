@@ -2,10 +2,6 @@
 
 namespace Modules\Payment;
 
-
-$URL = "";
-$token = Utils::Env("HMLG_ASAAS");
-
 class Ambients {
     public const PROD = 0;
     public const HMLG = 1;
@@ -55,22 +51,23 @@ final class AsaasURL {
 }
 
 class Asaas {
-    private static $apiKey = '';
+    private static string $apiKey = '';
+    private static int $ambient = Ambients::HMLG;
 
-    public static function Initialize() {
-        self::$apiKey = self::GetAmbient() == Ambients::PROD ? Utils::Env("ASAAS_KEY_PROD") : Utils::Env("ASAAS_KEY_HMLG");
+    public static function Initialize(int $ambient = Ambients::HMLG, string $apiKey = "") {
+        self::$apiKey = $apiKey;
+        self::$ambient = $ambient;
     }
 
     public static function GetAmbient() {
-        if ($_SERVER['SERVER_NAME'] == "app.mundodocuidar.com.br") {
-            return Ambients::PROD;
-        }
-        else {
-            return Ambients::HMLG;
-        }
+        return self::$ambient;
     }
 
-    public static function ValidateKey($key = "") {
+    public static function SetAmbient(int $ambient) {
+        self::$ambient = $ambient;
+    }
+
+    public static function IsKeyValid($key = "") {
         $ambientPrefix = "";
 
         if (empty($key)) {
@@ -89,16 +86,9 @@ class Asaas {
         return false;
     }
 
-    public static function SetApiKey($key) { self::$apiKey = $key; }
+    public static function SetApiKey(string $key) { self::$apiKey = $key; }
 
     public static function GetApiKey() { return self::$apiKey; }
-
-    public static function isKeyValid() {
-        $key = self::$apiKey;
-
-        if ($key == null or $key == "" or empty($key)) { return false; }
-        return true;
-    }
 
     private static function Process($data) {
         $result = array();
@@ -188,7 +178,7 @@ class Asaas {
 
         $url = 'https://'.(self::GetAmbient() == Ambients::PROD ? AsaasURL::PROD : AsaasURL::HMLG)."/v3/".$api;
 
-        if (!self::isKeyValid() or !self::ValidateKey()) { return [ "body" => [ "errors" => [ [ "code" => 0, "description" => "API Key inválida!" ] ] ], "headers" => [] ]; }
+        if (!self::IsKeyValid()) { return [ "body" => [ "errors" => [ [ "code" => 0, "description" => "API Key inválida!" ] ] ], "headers" => [] ]; }
 
         $curl = curl_init();
 
@@ -221,8 +211,6 @@ class Asaas {
 
         $err = curl_error($curl);
         curl_close($curl);
-
-        try { logs("pagamentos.php/".$api, json_encode($fields), json_encode([ "body" => $body, "headers" => $header ]))->send(); } catch(\Exception $ex) {}
 
         return [ "body" => $body, "headers" => $header ];
     }
@@ -271,15 +259,11 @@ class Asaas {
         return $req;
     }
 
-    public static function CreateCheckout($reference = "", array $items = [], array $chargeType = [], array $billingType = [], \User|null $customer = null, array $subscription = []) {
+    public static function CreateCheckout($reference = "", array $items = [], array $chargeType = [], array $billingType = [], \User|null $customer = null, array $subscription = [], string $url = "") {
         $minutes = 30;
 
         $arrItems = [];
 
-        $url = \Utils::getPageLink();
-        if (str_contains($url, "localhost")) {
-            $url = "https://develop.mundodocuidar.com.br";
-        }
         $callback = [
             'successUrl' => $url.'/callback/success',
             'cancelUrl' => $url.'/callback/cancel'
@@ -586,7 +570,5 @@ final class CHECKOUT
         return array_values($reflection->getConstants());
     }
 }
-
-Asaas::Initialize();
 
 ?>

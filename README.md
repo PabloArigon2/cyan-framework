@@ -45,18 +45,5 @@ Abaixo estão as principais categorias de ferramentas e módulos disponíveis no
 - **`locale.php` & `lang/`**: Sistema completo de tradução e localização.
 - **`geodata.php`**: Funções relacionadas a localização e dados geográficos.
 - **`math.php`**: Ferramentas auxiliares matemáticas.
-
-## Instalação e Inicialização
-
-Sendo um framework que utiliza o Composer para autoloading de classes:
-
-```bash
-# Atualizar dependências e mapeamento de classes
-composer install
-composer dump-autoload
-```
-
-O framework é inicializado por meio do arquivo `startup.php` e configurações locais são carregadas a partir das regras definidas em `config.php` e variáveis do `.env`.
-
 ---
 *Desenvolvido por Pablo Arigon - Uso estritamente privado.*

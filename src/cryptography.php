@@ -8,33 +8,18 @@ class Security {
     private static function GetMasterKey() {
         $sys = Utils::Env("SYSTEM_TOKEN");
         $mst = Utils::Env("MASTER_TOKEN");
-        // Retorna 32 bytes binários
         return hash('sha256', "token@".$sys."&".$mst, true);
     }
 
-    /**
-     * Derivação HKDF — isola matematicamente a chave por contexto.
-     * Cada "propósito" (ex: 'db_encrypt', 'token_gen') gera uma chave distinta
-     * a partir da MasterKey, impossibilitando reutilização cruzada.
-     * @param string $purpose  Ex: 'db_encrypt', 'token_sign', 'ui_encrypt'
-     * @param int    $length   Tamanho da chave derivada em bytes (padrão 32 = AES-256)
-     * @return string Chave binária derivada
-     */
     public static function DeriveKey(string $purpose, int $length = 32): string {
         return hash_hkdf('sha256', self::GetMasterKey(), $length, $purpose);
     }
 
-    /**
-     * Gera a chave de criptografia única para um registro.
-     */
     public static function Token($id, $identifier, $sep) {
         $masterkey = Utils::Env("MASTER_TOKEN");
         return hash('sha256', "token#$id" . $identifier . "$sep#$masterkey", true);
     }
 
-    /**
-     * Gera um Hash de busca (Blind Index) ou ID interno.
-     */
     public static function DBHash($str) {
         return hash_hmac('sha256', $str, self::DeriveKey('blind_index'), true);
     }
@@ -44,14 +29,9 @@ class Security {
         return bin2hex(hash_hmac('sha256', $str, self::DeriveKey('hash_general'), true));
     }
 
-    /**
-     * Gera um novo identificador binário para um registro.
-     */
     public static function Identifier() {
         return self::DBHash(self::UUID());
     }
-
-    // --- Criptografia de Armazenamento (Banco de Dados - BLOB/BINARY) ---
 
     public static function Encrypt($string, $key = null) {
         if (empty($string)) return '';
@@ -87,8 +67,6 @@ class Security {
         return $plaintext;
     }
 
-    // --- Criptografia de Interface (Frontend/URLs - HEX) ---
-
     public static function EncryptUI($string, $key = null) {
         return bin2hex(self::Encrypt($string, $key));
     }
@@ -98,32 +76,18 @@ class Security {
         return self::Decrypt(hex2bin($hexString), $key);
     }
 
-    // --- Helpers Expressos: Cifragem por Identifier/Token com Auto-JSON ---
-
-    /**
-     * Encripta dados usando a chave derivada de um registro (identifier).
-     * Se $data for array/object, converte automaticamente em JSON antes de cifrar.
-     */
     public static function EncryptByIdentifier($data, $id, $identifier, $sep = '@') {
         $key = self::Token($id, $identifier, $sep);
         if (is_array($data) || is_object($data)) $data = json_encode($data, JSON_UNESCAPED_UNICODE);
         return self::Encrypt($data, $key);
     }
 
-    /**
-     * Decripta dados usando a chave derivada de um registro (identifier).
-     * @param bool $asArray Se true, faz json_decode no resultado.
-     */
     public static function DecryptByIdentifier($data, $id, $identifier, $sep = '@', bool $asArray = false) {
         $key = self::Token($id, $identifier, $sep);
         $result = self::Decrypt($data, $key);
         return $asArray ? json_decode($result, true) : $result;
     }
 
-    /**
-     * Encripta dados usando uma chave de token arbitrária (variável de ambiente).
-     * Se $data for array/object, converte automaticamente em JSON.
-     */
     public static function EncryptByToken($data, string $tokenEnvKey) {
         $rawKey = Utils::Env($tokenEnvKey);
         if (empty($rawKey)) throw new \Exception("Token env key '$tokenEnvKey' não definida.");
@@ -132,10 +96,6 @@ class Security {
         return self::Encrypt($data, $key);
     }
 
-    /**
-     * Decripta dados usando uma chave de token arbitrária (variável de ambiente).
-     * @param bool $asArray Se true, faz json_decode no resultado.
-     */
     public static function DecryptByToken($data, string $tokenEnvKey, bool $asArray = false) {
         $rawKey = Utils::Env($tokenEnvKey);
         if (empty($rawKey)) throw new \Exception("Token env key '$tokenEnvKey' não definida.");
@@ -143,8 +103,6 @@ class Security {
         $result = self::Decrypt($data, $key);
         return $asArray ? json_decode($result, true) : $result;
     }
-
-    // --- Utilitários (UUID e Password) ---
 
     public static function UUID(): string {
         $data = random_bytes(16);

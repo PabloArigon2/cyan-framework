@@ -25,6 +25,10 @@ final class Permissions {
         return self::$Perms;
     }
 
+    public static function GetLabels() {
+        return self::$Labels;
+    }
+
     public static function GetLabel($perm) {
         $result = $perm;
         foreach(self::$Labels as $perms) {
@@ -36,76 +40,98 @@ final class Permissions {
         return $result;
     }
 
-    public static function CreateGroup($name, $desc, array $perms, $parent) {
-        $sql = \Database::Query("SELECT * FROM grupos WHERE nome = ?", [ $name ]);
+    public static function GetRoles(int $empresa = 0, int $id = 0) {
+        $sql = Database::Query("SELECT * FROM roles WHERE empresa_id <=> COALESCE(?, empresa_id) AND id <=> COALESCE(?, id)", [
+            ($empresa == 0 ? null : $empresa), ($id == 0 ? null : $id)
+        ]);
+
+        return $sql->isValid() ? $sql->get() : null;
+    }
+
+    public static function CreateRole($empresa_id, $nome, array $perms, $is_default = 0, $is_system = 0) {
+        $sql = \Database::Query("SELECT * FROM roles WHERE nome = ? AND empresa_id = ?", [ $nome, $empresa_id ]);
 
         if ($sql->validQuery()) 
-            return [ "Status" => false, "Mensagem" => "O Grupo ".$name." já existe! Por favor, escolha outro nome!", "Erro" => "" ];
+            return [ "Status" => false, "Mensagem" => "A Role ".$nome." já existe para esta empresa! Por favor, escolha outro nome!", "Erro" => "" ];
 
-        $reference = \Security::Hash();
-
-        $sql = \Database::Query("INSERT INTO grupos (parent, reference, nome, descricao, permissions) VALUES(?,?,?,?,?)", [
-            $parent, $reference, $name, $desc, \Security::Encrypt(json_encode($perms))
+        $sql = \Database::Query("INSERT INTO roles (empresa_id, nome, is_default, is_system) VALUES(?,?,?,?)", [
+            $empresa_id, $nome, $is_default, $is_system
         ]);
 
         if ($sql->validExecute()) {
-            return [ "Status" => true, "ID" => \Database::GetLastInsertID() ];
+            $role_id = \Database::GetLastInsertID();
+            self::SyncRolePermissions($role_id, $perms);
+            return [ "Status" => true, "ID" => $role_id ];
         }
 
-        return [ "Status" => false, "Mensagem" => "Ocorreu um erro ao criar grupo!", "Erro" => $sql->error() ];
+        return [ "Status" => false, "Mensagem" => "Ocorreu um erro ao criar a role!", "Erro" => $sql->error() ];
     }
 
-    public static function UpdateGroup($name, $desc, array $perms, $id) {
-        $sql = \Database::Query("SELECT * FROM grupos WHERE nome = ? AND id != ?", [ $name, $id ]);
+    public static function UpdateRole($id, $empresa_id, $nome, array $perms, $is_default = 0, $is_system = 0) {
+        $sql = \Database::Query("SELECT * FROM roles WHERE nome = ? AND empresa_id = ? AND id != ?", [ $nome, $empresa_id, $id ]);
 
         if ($sql->validQuery()) 
-            return [ "Status" => false, "Mensagem" => "O Grupo ".$name." já existe! Por favor, escolha outro nome!", "Erro" => "" ];
+            return [ "Status" => false, "Mensagem" => "A Role ".$nome." já existe para esta empresa! Por favor, escolha outro nome!", "Erro" => "" ];
 
-        $reference = \Security::Hash();
-
-        $sql = \Database::Query("UPDATE grupos SET nome = ?, descricao = ?, permissions = ? WHERE id = ?", [
-            $name, $desc, \Security::Encrypt(json_encode($perms)), $id
+        $sql = \Database::Query("UPDATE roles SET nome = ?, is_default = ?, is_system = ? WHERE id = ? AND empresa_id = ?", [
+            $nome, $is_default, $is_system, $id, $empresa_id
         ]);
 
         if ($sql->validExecute()) {
-            return [ "Status" => true, "ID" => \Database::GetLastInsertID() ];
+            self::SyncRolePermissions($id, $perms);
+            return [ "Status" => true, "ID" => $id ];
         }
 
-        return [ "Status" => false, "Mensagem" => "Ocorreu um erro ao salvar grupo!", "Erro" => $sql->error() ];
+        return [ "Status" => false, "Mensagem" => "Ocorreu um erro ao salvar a role!", "Erro" => $sql->error() ];
     }
 
-    public static function HasPermission($user, $perm) {
-        $sql = \Database::Query("SELECT DISTINCT
-        grupos.* 
-        FROM grupos_usuario 
-        INNER JOIN grupos ON grupos.id = grupos_usuario.grupo
-        WHERE grupos_usuario.usuario = ? AND grupos_usuario.status = 1", [
-            $user
-        ]);
-
-        if ($sql->validQuery()) {
-            $hasperm = false;
-
-            foreach($sql->get() as $row) {
-                $perms = $row['permissions'];
-                $perms = \Security::Decrypt($perms);
-                $perms = json_decode($perms, true);
-
-                foreach($perms as $key => $prm) {
-                    if ($key == $perm and $prm == true) {
-                        $hasperm = true;
-                        break;
-                    }
-                }
-
-                if ($hasperm)
-                    break;
+    private static function SyncRolePermissions($role_id, array $perms) {
+        // Limpa permissões antigas da role
+        \Database::Query("DELETE FROM role_permissoes WHERE role_id = ?", [$role_id]);
+        
+        foreach ($perms as $chave => $hasPerm) {
+            // Suporta array ['chave' => true] ou lista simples ['chave1', 'chave2']
+            if (is_int($chave)) {
+                $chave = $hasPerm;
+                $hasPerm = true;
             }
-
-            return $hasperm;
+            
+            if ($hasPerm) {
+                // Busca ID da permissão
+                $sql = \Database::Query("SELECT id FROM permissoes WHERE chave = ?", [$chave]);
+                
+                if ($sql->validQuery()) {
+                    $permissao_id = $sql->get()[0]['id'];
+                } else {
+                    // Cria a permissão se ela não existir no banco
+                    $label = self::GetLabel($chave);
+                    \Database::Query("INSERT INTO permissoes (chave, descricao) VALUES (?, ?)", [$chave, $label]);
+                    $permissao_id = \Database::GetLastInsertID();
+                }
+                
+                // Associa a permissão à role
+                \Database::Query("INSERT INTO role_permissoes (role_id, permissao_id) VALUES (?, ?)", [$role_id, $permissao_id]);
+            }
         }
+    }
 
-        return false;
+    public static function HasPermission($usuario_id, $chave, $empresa_id = null) {
+        $sqlStr = "SELECT DISTINCT r.id 
+                   FROM empresa_usuarios eu
+                   INNER JOIN roles r ON r.id = eu.role_id
+                   INNER JOIN role_permissoes rp ON rp.role_id = r.id
+                   INNER JOIN permissoes p ON p.id = rp.permissao_id
+                   WHERE eu.usuario_id = ? AND eu.status = 'ativo' AND p.chave = ?";
+                   
+        $params = [$usuario_id, $chave];
+        
+        if ($empresa_id !== null) {
+            $sqlStr .= " AND eu.empresa_id = ?";
+            $params[] = $empresa_id;
+        }
+        
+        $sql = \Database::Query($sqlStr, $params);
+        return $sql->validQuery();
     }
 }
 

@@ -241,6 +241,8 @@ class Tenant {
     public $RazaoSocial = "";
     public $InscricaoMunicipal = "";
     public $InscricaoEstadual = "";
+    public $NomeFantasia = "";
+    public $Categoria = "";
     public $Contato = [
         "Nome" => "",
         "Funcao" => "",

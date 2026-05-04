@@ -48,7 +48,7 @@ final class Router {
         return preg_replace('/[^a-zA-Z0-9_\-]/', '', $fragment);
     }
 
-    public static function ProcessChildMenu($target = ".profile-tab") {
+    public static function ProcessMenu($target = null, $additHtml = "") {
         if (!self::$routeInfo || empty(self::$routeInfo['info']['module'])) return;
 
         $moduleName   = self::$routeInfo['info']['module'];
@@ -57,20 +57,73 @@ final class Router {
         if (!file_exists($manifestPath)) return;
 
         $manifest = json_decode(file_get_contents($manifestPath), true);
-        if (!is_array($manifest)) return;
+        if (!is_array($manifest) || !isset($manifest['pages'])) return;
 
-        $activeTabStr = self::$routeInfo['info']['child_name'] ?? array_key_first($manifest);
+        $categorias = $manifest['categorias'] ?? [];
+        $pages = $manifest['pages'];
 
-        foreach ($manifest as $key => $data) {
+        $activeTabStr = self::$routeInfo['info']['child_name'] ?? array_key_first($pages);
+
+        $code = [];
+        $code[''] = [
+            "label" => null,
+            "items" => []
+        ];
+
+        foreach($categorias as $key => $label) {
+            $code[$key] = [
+                "label" => $label,
+                "items" => []
+            ];
+        }
+
+        foreach($pages as $key => $data) {
             $isActive = ($key === $activeTabStr) ? 'active' : '';
             $icon  = htmlspecialchars($data['icon']  ?? '', ENT_QUOTES, 'UTF-8');
             $title = htmlspecialchars($data['title'] ?? '', ENT_QUOTES, 'UTF-8');
             $url   = htmlspecialchars("{$moduleName}/{$key}", ENT_QUOTES, 'UTF-8');
 
+            $itemData = [
+                "active" => $isActive,
+                "icon" => $icon,
+                "url" => $url,
+                "title" => $title
+            ];
+
+            if (!empty($data['categoria']) && isset($code[$data['categoria']])) {
+                $code[$data['categoria']]['items'][] = $itemData;
+            } else {
+                $code['']['items'][] = $itemData;
+            }
+        }
+
+        foreach($code as $data) {
+            if (empty($data['items'])) continue;
+
+            $grupoAttr = $data['label'] ? " grupo=\"{$data['label']}\"" : "";
+
             echo <<<HTML
-            <li class="sidebar-nav-item spa-router {$isActive}" target="{$url}">
-                <i class="{$icon}"></i> {$title}
-            </li>
+                <ul class="sidebar-nav-menu"{$grupoAttr}>
+            HTML;
+
+            foreach($data['items'] as $item) {
+                echo <<<HTML
+                <li class="sidebar-nav-item spa-router {$item['active']}" target="{$item['url']}">
+                    <i class="{$item['icon']}"></i> {$item['title']}
+                </li>
+                HTML;
+            }
+
+            echo <<<HTML
+                </ul>
+            HTML;
+        }
+
+        if (!empty($additHtml)) {
+            echo <<<HTML
+            <div class="sidebar-append" style="display: contents;">
+                {$additHtml}
+            </div>
             HTML;
         }
     }
@@ -187,8 +240,11 @@ final class Router {
                 $manifestPath = $moduleDir . "/manifest.json";
                 if (file_exists($manifestPath)) {
                     $manifestJSON = json_decode(file_get_contents($manifestPath), true);
-                    if (is_array($manifestJSON) && !isset($manifestJSON[$subFileName])) {
-                        return ['status' => 403, 'info' => []];
+
+                    if (is_array($manifestJSON) && isset($manifestJSON['pages'])) {
+                        if (!isset($manifestJSON['pages'][$subFileName])) {
+                            return ['status' => 403, 'info' => []];
+                        }
                     }
                 }
 
@@ -204,8 +260,9 @@ final class Router {
                 $manifestPath = $moduleDir . "/manifest.json";
                 if (file_exists($manifestPath)) {
                     $manifestJSON = json_decode(file_get_contents($manifestPath), true);
-                    if (is_array($manifestJSON) && count($manifestJSON) > 0) {
-                        $firstKey = array_keys($manifestJSON)[0];
+
+                    if (is_array($manifestJSON) && isset($manifestJSON['pages']) && count($manifestJSON['pages']) > 0) {
+                        $firstKey = array_keys($manifestJSON['pages'])[0];
                         $result['info']['is_nested']   = true;
                         $result['info']['child_path']   = $moduleDir . "/" . $firstKey . ".php";
                         $result['info']['child_name']   = $firstKey;

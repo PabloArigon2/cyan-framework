@@ -230,15 +230,61 @@ class Database
         ;
         ";
 
+        $sqlRoles1 = "CREATE TABLE `roles` (
+            `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `empresa_id` BIGINT(20) UNSIGNED NOT NULL,
+            `nome` VARCHAR(100) NOT NULL COLLATE 'utf8mb4_general_ci',
+            `is_default` TINYINT(1) NOT NULL DEFAULT '0',
+            `is_system` TINYINT(1) NOT NULL DEFAULT '0',
+            `created_at` DATETIME NOT NULL DEFAULT current_timestamp(),
+            PRIMARY KEY (`id`) USING BTREE,
+            UNIQUE INDEX `unq_empresa_role_nome` (`empresa_id`, `nome`) USING BTREE,
+            INDEX `idx_roles_empresa` (`empresa_id`) USING BTREE,
+            CONSTRAINT `fk_roles_empresa` FOREIGN KEY (`empresa_id`) REFERENCES `empresas` (`id`) ON UPDATE RESTRICT ON DELETE RESTRICT
+        )
+        COLLATE='utf8mb4_general_ci'
+        ENGINE=InnoDB
+        ;
+        ";
+
+        $sqlRoles2 = "CREATE TABLE `role_permissoes` (
+            `role_id` BIGINT(20) UNSIGNED NOT NULL,
+            `permissao_id` BIGINT(20) UNSIGNED NOT NULL,
+            PRIMARY KEY (`role_id`, `permissao_id`) USING BTREE,
+            INDEX `idx_role_permissoes_permissao` (`permissao_id`) USING BTREE,
+            CONSTRAINT `fk_role_permissoes_permissao` FOREIGN KEY (`permissao_id`) REFERENCES `permissoes` (`id`) ON UPDATE RESTRICT ON DELETE RESTRICT,
+            CONSTRAINT `fk_role_permissoes_role` FOREIGN KEY (`role_id`) REFERENCES `roles` (`id`) ON UPDATE RESTRICT ON DELETE RESTRICT
+        )
+        COLLATE='utf8mb4_general_ci'
+        ENGINE=InnoDB
+        ;
+        ";
+
+        $sqlRoles3 = "CREATE TABLE `permissoes` (
+            `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            `chave` VARCHAR(100) NOT NULL COLLATE 'utf8mb4_general_ci',
+            `descricao` VARCHAR(250) NOT NULL COLLATE 'utf8mb4_general_ci',
+            PRIMARY KEY (`id`) USING BTREE,
+            UNIQUE INDEX `unq_permissao_chave` (`chave`) USING BTREE
+        )
+        COLLATE='utf8mb4_general_ci'
+        ENGINE=InnoDB
+        ;
+        ";
+
         Database::Transaction();
         $execUsuarios = Database::Query($sqlUsuarios);
         $execTenant = Database::Query($sqlTenant);
         $execLogs = Database::Query($sqlLogs);
         $execAudit = Database::Query($sqlAudit);
+        $execRoles1 = Database::Query($sqlRoles1);
+        $execRoles2 = Database::Query($sqlRoles2);
+        $execRoles3 = Database::Query($sqlRoles3);
 
-        if (!$execUsuarios->validExecute() or !$execTenant->validExecute() or !$execLogs->validExecute() or !$execAudit->validExecute()){
+        if (!$execUsuarios->validExecute() or !$execTenant->validExecute() or !$execLogs->validExecute() or !$execAudit->validExecute() or 
+            !$execRoles1->validExecute() or !$execRoles2->validExecute() or !$execRoles3->validExecute()){
             Database::Revert();
-            $errors = [ "Usuarios" => $execUsuarios->error(), "Tenant" => $execTenant->error(), "Logs" => $execLogs->error(), "Audit" => $execAudit->error() ];
+            $errors = [ "Usuarios" => $execUsuarios->error(), "Tenant" => $execTenant->error(), "Logs" => $execLogs->error(), "Audit" => $execAudit->error(), "Roles1" => $execRoles1->error(), "Roles2" => $execRoles2->error(), "Roles3" => $execRoles3->error() ];
             throw new Exception("Erro ao inicializar estrutura do banco de dados! Data: ".json_encode($errors, JSON_UNESCAPED_UNICODE));
         }
 

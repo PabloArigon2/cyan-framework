@@ -2,6 +2,15 @@
 
 //getLogs()->setAcao("")->setFile("")->setParameters(json_encode($_POST))->send();
 
+class LogLevel {
+    public const CRITICO = 'critico';
+    public const DEBUG = 'debug';
+    public const INFO = 'info';
+    public const WARNING = 'aviso';
+    public const ERRO = 'erro';
+    public const ALERTA = 'alerta';
+}
+
 class Logs {
 
     private static $currentLogId = "";
@@ -18,6 +27,7 @@ class Logs {
     private $logInfoData;
     private $error;
     private $errCode;
+    private $logLevel;
 
     public function __construct() {
         $this->message = "";
@@ -26,6 +36,7 @@ class Logs {
         $this->body = "";
         $this->bodyHeaders = "";
         $this->acao = "";
+        $this->logLevel = "";
     }
 
     public function logInfo($arr) {
@@ -102,6 +113,10 @@ class Logs {
         return $this;
     } 
 
+    public function setLogLevel(string $level) {
+        $this->logLevel = $level;
+    }
+
     public function setLogContinue($logID) {
         $this->logID = $logID;
         return $this;
@@ -146,9 +161,11 @@ class Logs {
         $logID = $this->logID;
         $ctx = self::GetLogContext();
 
+        if (empty($this->logLevel)) $this->logLevel = 'info';
+
         if (empty($logID)) {
 
-            $data = \Database::Query("INSERT INTO logs(usuario, file, acao, message, body, body_headers, method, error, http_code) VALUES(?,?,?,?,?,?,?,?,?)", array(
+            $data = \Database::Query("INSERT INTO logs(usuario, file, acao, message, body, body_headers, method, error, http_code, level) VALUES(?,?,?,?,?,?,?,?,?,?)", array(
                 new \Parameter("i", (!empty($user)) ? $user->ID : 0),
                 new \Parameter("s", $this->filename),
                 new \Parameter("s", $this->acao),
@@ -157,10 +174,11 @@ class Logs {
                 new \Parameter("s", $this->bodyHeaders),
                 $this->method,
                 $this->error,
-                $this->errCode
+                $this->errCode,
+                $this->logLevel
             ), $ctx);
 
-            if ($data->validExecute()) {
+            if ($data->valid()) {
                 self::$currentLogId = \Database::GetLastInsertID($ctx);
                 return self::$currentLogId;
             }
@@ -178,7 +196,7 @@ class Logs {
                 $logID
             ], $ctx);
 
-            if ($data->validExecute()) {
+            if ($data->valid()) {
                 return true;
             }
             else {
@@ -187,7 +205,7 @@ class Logs {
         }        
     }
 
-    public static function audit($evento, $status, $parent, $usuario = null) {
+    public static function audit($evento, $status, $parent, $usuario = null, string $level) {
         $ctx = self::GetLogContext();
         $remote = $_SERVER['REMOTE_ADDR'] ?? '';
         $proxy = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? '';
@@ -195,7 +213,9 @@ class Logs {
         $user_obj = Utils::CurrentUser();
         $user = (empty($usuario)) ? ($user_obj ? $user_obj->ID : 0) : $usuario;
 
-        $sql = \Database::Query("INSERT INTO logs_auditoria(usuario, event, status, remote_address, proxy_address, shared_address, remote_hash, proxy_hash, shared_hash, parent) VALUES(?,?,?,?,?,?,?,?,?,?)", [
+        if (empty($level)) $level = 'info';
+
+        $sql = \Database::Query("INSERT INTO logs_auditoria(usuario, event, status, remote_address, proxy_address, shared_address, remote_hash, proxy_hash, shared_hash, parent, level) VALUES(?,?,?,?,?,?,?,?,?,?,?)", [
             (empty($user)) ? 0 : $user,
             $evento, 
             $status,
@@ -205,10 +225,11 @@ class Logs {
             (!empty($remote)) ? \Security::Hash($remote) : null,
             (!empty($proxy)) ? \Security::Hash($proxy) : null,
             (!empty($shared)) ? \Security::Hash($shared) : null,
-            $parent
+            $parent,
+            $level
         ], $ctx);
 
-        return $sql->validExecute();
+        return $sql->valid();
     }
 }
 

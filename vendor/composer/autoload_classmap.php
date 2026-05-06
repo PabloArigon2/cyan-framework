@@ -45,6 +45,7 @@ return array(
     'InputResolver' => $baseDir . '/src/helpers.php',
     'JSON' => $baseDir . '/src/structs.php',
     'Lang' => $baseDir . '/src/locale.php',
+    'LogLevel' => $baseDir . '/src/logs.php',
     'Logs' => $baseDir . '/src/logs.php',
     'Math' => $baseDir . '/src/math.php',
     'MemoryDriver' => $baseDir . '/src/cache.php',

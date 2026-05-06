@@ -222,6 +222,7 @@ class Database
             `method` LONGTEXT NOT NULL COLLATE 'utf8mb4_general_ci',
             `http_code` INT(11) NULL DEFAULT NULL,
             `status` INT(11) NOT NULL DEFAULT '0',
+            `level` ENUM('critico','debug','info','aviso','erro','alerta') NULL DEFAULT 'info' COLLATE 'utf8mb4_general_ci',
             PRIMARY KEY (`id`) USING BTREE
         )
         COLLATE='utf8mb4_general_ci'
@@ -236,10 +237,14 @@ class Database
             `usuario` INT(11) NULL DEFAULT NULL,
             `event` LONGTEXT NULL DEFAULT NULL COLLATE 'utf8mb4_general_ci',
             `status` INT(11) NULL DEFAULT NULL,
-            `remote_address` LONGTEXT NULL DEFAULT NULL COLLATE 'utf8mb4_general_ci',
-            `proxy_address` LONGTEXT NULL DEFAULT NULL COLLATE 'utf8mb4_general_ci',
-            `shared_address` LONGTEXT NULL DEFAULT NULL COLLATE 'utf8mb4_general_ci',
+            `remote_address` BINARY(32) NULL DEFAULT NULL,
+            `proxy_address` BINARY(32) NULL DEFAULT NULL,
+            `shared_address` BINARY(32) NULL DEFAULT NULL,
+            `remote_hash` BINARY(32) NULL DEFAULT NULL,
+            `proxy_hash` BINARY(32) NULL DEFAULT NULL,
+            `shared_hash` BINARY(32) NULL DEFAULT NULL,
             `parent` INT(11) NULL DEFAULT NULL,
+            `level` ENUM('critico','debug','info','aviso','erro','alerta') NULL DEFAULT 'info' COLLATE 'utf8mb4_general_ci',
             PRIMARY KEY (`id`) USING BTREE
         )
         COLLATE='utf8mb4_general_ci'

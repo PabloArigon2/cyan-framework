@@ -78,17 +78,45 @@ final class Router {
         }
 
         foreach($pages as $key => $data) {
-            $isActive = ($key === $activeTabStr) ? 'active' : '';
             $icon  = htmlspecialchars($data['icon']  ?? '', ENT_QUOTES, 'UTF-8');
             $title = htmlspecialchars($data['title'] ?? '', ENT_QUOTES, 'UTF-8');
             $url   = htmlspecialchars("{$moduleName}/{$key}", ENT_QUOTES, 'UTF-8');
 
-            $itemData = [
-                "active" => $isActive,
-                "icon" => $icon,
-                "url" => $url,
-                "title" => $title
-            ];
+            // Verifica se a page tem submenus
+            if (!empty($data['submenus']) && is_array($data['submenus'])) {
+                // Verificar se algum submenu filho está ativo
+                $parentActive = false;
+                $subItems = [];
+                foreach ($data['submenus'] as $subKey => $subData) {
+                    $subIsActive = ($subKey === $activeTabStr);
+                    if ($subIsActive) $parentActive = true;
+                    $subTitle = htmlspecialchars($subData['title'] ?? '', ENT_QUOTES, 'UTF-8');
+                    $subUrl   = htmlspecialchars("{$moduleName}/{$subKey}", ENT_QUOTES, 'UTF-8');
+                    $subItems[] = [
+                        "active" => $subIsActive ? 'active' : '',
+                        "url" => $subUrl,
+                        "title" => $subTitle
+                    ];
+                }
+
+                $itemData = [
+                    "type" => "parent",
+                    "active" => $parentActive ? 'active' : '',
+                    "icon" => $icon,
+                    "title" => $title,
+                    "collapse_id" => "collapse-{$key}",
+                    "submenus" => $subItems
+                ];
+            } else {
+                $isActive = ($key === $activeTabStr) ? 'active' : '';
+                $itemData = [
+                    "type" => "item",
+                    "active" => $isActive,
+                    "icon" => $icon,
+                    "url" => $url,
+                    "title" => $title
+                ];
+            }
 
             if (!empty($data['categoria']) && isset($code[$data['categoria']])) {
                 $code[$data['categoria']]['items'][] = $itemData;
@@ -107,11 +135,37 @@ final class Router {
             HTML;
 
             foreach($data['items'] as $item) {
-                echo <<<HTML
-                <li class="sidebar-nav-item spa-router {$item['active']}" target="{$item['url']}">
-                    <i class="{$item['icon']}"></i> {$item['title']}
-                </li>
-                HTML;
+                if (isset($item['type']) && $item['type'] === 'parent') {
+                    $parentActiveClass = $item['active'];
+                    $collapseId = $item['collapse_id'];
+                    echo <<<HTML
+                    <li class="sidebar-nav-item-parent">
+                        <a class="submenu-toggle {$parentActiveClass}">
+                            <i class="{$item['icon']}"></i> {$item['title']}
+                            <i class="bi bi-chevron-down" style="font-size: 12px; margin-left: auto;"></i>
+                        </a>
+                        <ul class="submenu-list" id="{$collapseId}">
+                    HTML;
+
+                    foreach ($item['submenus'] as $sub) {
+                        echo <<<HTML
+                            <li class="sidebar-nav-item spa-router {$sub['active']}" target="{$sub['url']}">
+                                {$sub['title']}
+                            </li>
+                        HTML;
+                    }
+
+                    echo <<<HTML
+                        </ul>
+                    </li>
+                    HTML;
+                } else {
+                    echo <<<HTML
+                    <li class="sidebar-nav-item spa-router {$item['active']}" target="{$item['url']}">
+                        <i class="{$item['icon']}"></i> {$item['title']}
+                    </li>
+                    HTML;
+                }
             }
 
             echo <<<HTML
@@ -242,7 +296,19 @@ final class Router {
                     $manifestJSON = json_decode(file_get_contents($manifestPath), true);
 
                     if (is_array($manifestJSON) && isset($manifestJSON['pages'])) {
-                        if (!isset($manifestJSON['pages'][$subFileName])) {
+                        // Verifica se é uma page direta OU um submenu de alguma page
+                        $isAllowed = isset($manifestJSON['pages'][$subFileName]);
+                        
+                        if (!$isAllowed) {
+                            foreach ($manifestJSON['pages'] as $pageData) {
+                                if (!empty($pageData['submenus']) && isset($pageData['submenus'][$subFileName])) {
+                                    $isAllowed = true;
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (!$isAllowed) {
                             return ['status' => 403, 'info' => []];
                         }
                     }

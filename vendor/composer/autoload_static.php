@@ -46,6 +46,7 @@ class ComposerStaticInitc2ec338e9ddf5e4b8f7d715c74073692
         'InputResolver' => __DIR__ . '/../..' . '/src/helpers.php',
         'JSON' => __DIR__ . '/../..' . '/src/structs.php',
         'Lang' => __DIR__ . '/../..' . '/src/locale.php',
+        'LogLevel' => __DIR__ . '/../..' . '/src/logs.php',
         'Logs' => __DIR__ . '/../..' . '/src/logs.php',
         'Math' => __DIR__ . '/../..' . '/src/math.php',
         'MemoryDriver' => __DIR__ . '/../..' . '/src/cache.php',

@@ -41,8 +41,25 @@ final class Permissions {
     }
 
     public static function GetRoles(int $empresa = 0, int $id = 0) {
-        $sql = Database::Query("SELECT * FROM roles WHERE empresa_id <=> COALESCE(?, empresa_id) AND id <=> COALESCE(?, id)", [
+        $sql = Database::Query("SELECT * FROM roles WHERE (empresa_id <=> COALESCE(?, empresa_id) AND id <=> COALESCE(?, id)) OR is_system = 1", [
             ($empresa == 0 ? null : $empresa), ($id == 0 ? null : $id)
+        ]);
+
+        return $sql->isValid() ? $sql->get() : null;
+    }
+
+    public static function GetPermissions() {
+        $sql = Database::Query("SELECT * FROM permissoes");
+
+        return $sql->isValid() ? $sql->get() : null;
+    }
+
+    public static function GetRolePermissions(int $role = 0) {
+        $sql = Database::Query("SELECT permissoes.* 
+        FROM permissoes 
+        INNER JOIN role_permissoes ON role_permissoes.permissao_id = permissoes.id
+        WHERE role_permissoes.role_id <=> COALESCE(?, role_permissoes.role_id)", [
+            ($role == 0 ? null : $role)
         ]);
 
         return $sql->isValid() ? $sql->get() : null;

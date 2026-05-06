@@ -8,6 +8,7 @@ class QueryResult
     public $errorCode = 0;
     public $rows = 0;
     public $duplicated = false;
+    private $origQuery = "";
 
     function SetError($err)
     {
@@ -18,9 +19,10 @@ class QueryResult
         $this->errorCode = $errCode;
     }
 
-    function __construct($arr)
+    function __construct($arr, $qry)
     {
         $this->values = $arr;
+        $this->origQuery = $qry;
     }
 
     public function isDuplicated() {
@@ -76,6 +78,22 @@ class QueryResult
         }
     }
 
+    public function valid() {
+        $qry = trim(strtolower($this->origQuery));
+
+        $qry = preg_replace('/^\s*(?:--[^\r\n]*(?:\r?\n|$)|\/\*.*?\*\/\s*)+/s', '', $qry);
+
+        $command = strtok($qry, " \t\n\r");
+
+        return match ($command) {
+            'select', 'show', 'describe', 'desc', 'explain', 'with'
+                => $this->validQuery(),
+
+            default
+                => $this->validExecute()
+        };
+    }
+
     public function isValid()
     {
         if ((gettype($this->values) == "boolean" and $this->values) or ($this->values and gettype($this->values) == "array" and ($this->error == null or empty($this->error)))) return true;
@@ -87,11 +105,11 @@ class QueryResult
         return ($this->error == null or $this->error == "" or empty($this->error)) ? false : true;
     }
 
-    public function validExecute(){
+    private function validExecute(){
         return (!$this->hasError() and $this->get());
     }
 
-    public function validQuery() {
+    private function validQuery() {
         return ($this->isValid() and $this->length() > 0);
     }
 
@@ -281,8 +299,8 @@ class Database
         $execRoles2 = Database::Query($sqlRoles2);
         $execRoles3 = Database::Query($sqlRoles3);
 
-        if (!$execUsuarios->validExecute() or !$execTenant->validExecute() or !$execLogs->validExecute() or !$execAudit->validExecute() or 
-            !$execRoles1->validExecute() or !$execRoles2->validExecute() or !$execRoles3->validExecute()){
+        if (!$execUsuarios->valid() or !$execTenant->valid() or !$execLogs->valid() or !$execAudit->valid() or 
+            !$execRoles1->valid() or !$execRoles2->valid() or !$execRoles3->valid()){
             Database::Revert();
             $errors = [ "Usuarios" => $execUsuarios->error(), "Tenant" => $execTenant->error(), "Logs" => $execLogs->error(), "Audit" => $execAudit->error(), "Roles1" => $execRoles1->error(), "Roles2" => $execRoles2->error(), "Roles3" => $execRoles3->error() ];
             throw new Exception("Erro ao inicializar estrutura do banco de dados! Data: ".json_encode($errors, JSON_UNESCAPED_UNICODE));
@@ -335,7 +353,7 @@ class Database
 
     public static function Query($str, $params = [], $context = null, $tryCatch = true, $bypass = false) : QueryResult
     {
-        $qr = new QueryResult([]);
+        $qr = new QueryResult([], $str);
 
         if (str_contains(strtolower($str), "update") or str_contains(strtolower($str), "delete")) {
             if (!str_contains(strtolower($str), "where") and !$bypass) {
@@ -393,13 +411,14 @@ class Database
             return $qr;
         }
 
-        $isSelect = preg_match('/^\s*(SELECT|SHOW|DESCRIBE|EXPLAIN)/i', $str);
+        $cleanStr = preg_replace('/^\s*(?:--[^\r\n]*(?:\r?\n|$)|\/\*.*?\*\/\s*)+/s', '', $str);
+        $isSelect = preg_match('/^\s*(SELECT|SHOW|DESCRIBE|DESC|EXPLAIN|WITH)\b/i', $cleanStr);
 
         if ($isSelect) {
             $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            $qr = new QueryResult($rows);
+            $qr = new QueryResult($rows, $str);
         } else {
-            $qr = new QueryResult(true);
+            $qr = new QueryResult(true, $str);
         }
 
         $qr->setRows($stmt->rowCount());

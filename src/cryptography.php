@@ -42,7 +42,10 @@ class Security {
         
         $ciphertext = openssl_encrypt($string, self::CIPHER, $key, OPENSSL_RAW_DATA, $iv, $tag, "", self::TAG_LENGTH);
 
-        if ($ciphertext === false) throw new \Exception("Erro na cifragem.");
+        if ($ciphertext === false) {
+            error_log("[ CRYPT ] Erro na cifragem!");
+            return null;
+        }
 
         return $iv . $tag . $ciphertext;
     }
@@ -54,7 +57,10 @@ class Security {
         $ivlen  = openssl_cipher_iv_length(self::CIPHER);
         $taglen = self::TAG_LENGTH;
 
-        if (strlen($data) < ($ivlen + $taglen)) throw new \Exception("Dado corrompido.");
+        if (strlen($data) < ($ivlen + $taglen)) {
+            error_log("[ CRYPT ] Dado corrompido!");
+            return null;
+        }
 
         $iv         = substr($data, 0, $ivlen);
         $tag        = substr($data, $ivlen, $taglen);
@@ -62,7 +68,10 @@ class Security {
 
         $plaintext = openssl_decrypt($ciphertext, self::CIPHER, $key, OPENSSL_RAW_DATA, $iv, $tag);
 
-        if ($plaintext === false) throw new \Exception("Falha na autenticação (Integridade violada).");
+        if ($plaintext === false) {
+            error_log("[ CRYPT ] Falha na autenticação! (Integridade violada).");
+            return null;
+        }
 
         return $plaintext;
     }
@@ -72,7 +81,7 @@ class Security {
     }
 
     public static function DecryptUI($hexString, $key = null) {
-        if (!ctype_xdigit($hexString)) throw new \Exception("Formato inválido.");
+        if (!ctype_xdigit($hexString)) return null;
         return self::Decrypt(hex2bin($hexString), $key);
     }
 
@@ -90,7 +99,10 @@ class Security {
 
     public static function EncryptByToken($data, string $tokenEnvKey) {
         $rawKey = Utils::Env($tokenEnvKey);
-        if (empty($rawKey)) throw new \Exception("Token env key '$tokenEnvKey' não definida.");
+        if (empty($rawKey)) {
+            error_log("[ CRYPT ] Token env key '$tokenEnvKey' não definida!");
+            return null;
+        }
         $key = hash('sha256', $rawKey, true);
         if (is_array($data) || is_object($data)) $data = json_encode($data, JSON_UNESCAPED_UNICODE);
         return self::Encrypt($data, $key);
@@ -98,7 +110,10 @@ class Security {
 
     public static function DecryptByToken($data, string $tokenEnvKey, bool $asArray = false) {
         $rawKey = Utils::Env($tokenEnvKey);
-        if (empty($rawKey)) throw new \Exception("Token env key '$tokenEnvKey' não definida.");
+        if (empty($rawKey)) {
+            error_log("[ CRYPT ] Token env key '$tokenEnvKey' não definida!");
+            return null;
+        }
         $key = hash('sha256', $rawKey, true);
         $result = self::Decrypt($data, $key);
         return $asArray ? json_decode($result, true) : $result;

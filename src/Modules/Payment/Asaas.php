@@ -405,7 +405,7 @@ class Cobrancas {
             new \Parameter("s", \Security::Encrypt($paymentID))
         ]);
 
-        return $sql->validQuery() ? $sql->get(0) : null;
+        return $sql->valid() ? $sql->get(0) : null;
     }
 }
 

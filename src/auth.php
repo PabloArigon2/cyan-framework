@@ -30,7 +30,7 @@ final class Auth {
             $auth = $headers['Authorization'];
             $sql = Database::Query("SELECT * FROM env_keys WHERE env_key = ?", [ $auth ]);
 
-            if ($sql->validQuery()) {
+            if ($sql->valid()) {
                 if ($sql->length() > 0) {
                     $name = $sql->get(0)['env_name'];
                     $validatedToken = true;
@@ -77,7 +77,7 @@ final class Auth {
 
         $sql = Database::Query("SELECT id FROM usuarios WHERE id = ?", [ $id ]);
 
-        if ($sql->validQuery()) {
+        if ($sql->valid()) {
             return Auth::GetUserData($sql->field(0, "id"));
         }
 
@@ -102,7 +102,7 @@ final class Auth {
 
         $sql = Database::Query("SELECT dados, identifier, id as id_usuario, status FROM usuarios WHERE id = ?", [ $id_usuario ]);
 
-        if ($sql->validQuery()) {
+        if ($sql->valid()) {
             $token = Security::Token($sql->field(0, "id_usuario"), $sql->field(0, "identifier"), TokenEnv::USUARIO);
             $data = Security::Decrypt($sql->field(0, "dados"), $token);
             $data = json_decode($data, true);
@@ -131,7 +131,7 @@ final class Auth {
         $sql = Database::Query("SELECT dados, identifier, id, status FROM tenants 
             WHERE tenants.id <=> COALESCE(?, tenants.id) AND tenants.identifier <=> COALESCE(?, tenants.identifier)", [ $id_tenant, $identifier ]);
 
-        if ($sql->validQuery()) {
+        if ($sql->valid()) {
             $token = Security::Token($sql->field(0, "id"), $sql->field(0, "identifier"), TokenEnv::TENANT);
             $data = Security::Decrypt($sql->field(0, "dados"), $token);
             $result = json_decode($data, true) ?? [];

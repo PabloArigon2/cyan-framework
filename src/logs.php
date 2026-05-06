@@ -205,7 +205,7 @@ class Logs {
         }        
     }
 
-    public static function audit($evento, $status, $parent, $usuario = null, string $level) {
+    public static function audit($evento, $status, $parent, $usuario = null, string $level = "info") {
         $ctx = self::GetLogContext();
         $remote = $_SERVER['REMOTE_ADDR'] ?? '';
         $proxy = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? '';

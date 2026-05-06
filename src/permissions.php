@@ -68,14 +68,14 @@ final class Permissions {
     public static function CreateRole($empresa_id, $nome, array $perms, $is_default = 0, $is_system = 0) {
         $sql = \Database::Query("SELECT * FROM roles WHERE nome = ? AND empresa_id = ?", [ $nome, $empresa_id ]);
 
-        if ($sql->validQuery()) 
+        if ($sql->valid()) 
             return [ "Status" => false, "Mensagem" => "A Role ".$nome." já existe para esta empresa! Por favor, escolha outro nome!", "Erro" => "" ];
 
         $sql = \Database::Query("INSERT INTO roles (empresa_id, nome, is_default, is_system) VALUES(?,?,?,?)", [
             $empresa_id, $nome, $is_default, $is_system
         ]);
 
-        if ($sql->validExecute()) {
+        if ($sql->valid()) {
             $role_id = \Database::GetLastInsertID();
             self::SyncRolePermissions($role_id, $perms);
             return [ "Status" => true, "ID" => $role_id ];
@@ -87,14 +87,14 @@ final class Permissions {
     public static function UpdateRole($id, $empresa_id, $nome, array $perms, $is_default = 0, $is_system = 0) {
         $sql = \Database::Query("SELECT * FROM roles WHERE nome = ? AND empresa_id = ? AND id != ?", [ $nome, $empresa_id, $id ]);
 
-        if ($sql->validQuery()) 
+        if ($sql->valid()) 
             return [ "Status" => false, "Mensagem" => "A Role ".$nome." já existe para esta empresa! Por favor, escolha outro nome!", "Erro" => "" ];
 
         $sql = \Database::Query("UPDATE roles SET nome = ?, is_default = ?, is_system = ? WHERE id = ? AND empresa_id = ?", [
             $nome, $is_default, $is_system, $id, $empresa_id
         ]);
 
-        if ($sql->validExecute()) {
+        if ($sql->valid()) {
             self::SyncRolePermissions($id, $perms);
             return [ "Status" => true, "ID" => $id ];
         }
@@ -117,7 +117,7 @@ final class Permissions {
                 // Busca ID da permissão
                 $sql = \Database::Query("SELECT id FROM permissoes WHERE chave = ?", [$chave]);
                 
-                if ($sql->validQuery()) {
+                if ($sql->valid()) {
                     $permissao_id = $sql->get()[0]['id'];
                 } else {
                     // Cria a permissão se ela não existir no banco
@@ -148,7 +148,7 @@ final class Permissions {
         }
         
         $sql = \Database::Query($sqlStr, $params);
-        return $sql->validQuery();
+        return $sql->valid();
     }
 }
 

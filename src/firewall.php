@@ -80,7 +80,7 @@ final class Firewall {
             [self::hashIp($ip), $action, $windowSec]
         );
 
-        return $result->validQuery() ? (int)$result->field(0, 'total') : 0;
+        return $result->valid() ? (int)$result->field(0, 'total') : 0;
     }
 
     // --- Blacklist Management ---
@@ -119,7 +119,7 @@ final class Firewall {
             [self::hashIp($ip)]
         );
 
-        return $result->validQuery();
+        return $result->valid();
     }
 
     /**
@@ -148,7 +148,7 @@ final class Firewall {
             [$windowHours, $topN]
         );
 
-        return $result->validQuery() ? $result->get() : [];
+        return $result->valid() ? $result->get() : [];
     }
 
     /**
@@ -159,7 +159,7 @@ final class Firewall {
             "SELECT * FROM firewall_blacklist WHERE expires_at IS NULL OR expires_at > NOW() ORDER BY created_at DESC"
         );
 
-        return $result->validQuery() ? $result->get() : [];
+        return $result->valid() ? $result->get() : [];
     }
 
     // --- Internos ---

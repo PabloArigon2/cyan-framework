@@ -150,7 +150,7 @@ final class QB {
     public function first(): ?array {
         $this->limitVal = 1;
         $result = $this->get();
-        return $result->validQuery() ? $result->get(0) : null;
+        return $result->valid() ? $result->get(0) : null;
     }
 
     /**
@@ -161,7 +161,7 @@ final class QB {
         $this->selects = ['COUNT(*) AS total'];
         $result = $this->get();
         $this->selects = $saved;
-        return $result->validQuery() ? (int)$result->field(0, 'total') : 0;
+        return $result->valid() ? (int)$result->field(0, 'total') : 0;
     }
 
     /**

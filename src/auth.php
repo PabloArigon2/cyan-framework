@@ -100,7 +100,7 @@ final class Auth {
 
         if (empty($id_usuario)) return $result;
 
-        $sql = Database::Query("SELECT dados, identifier, id as id_usuario, status FROM usuarios WHERE id = ?", [ $id_usuario ]);
+        $sql = Database::Query("SELECT dados, identifier, id as id_usuario, status, sign_hash FROM usuarios WHERE id = ?", [ $id_usuario ]);
 
         if ($sql->valid()) {
             $token = Security::Token($sql->field(0, "id_usuario"), $sql->field(0, "identifier"), TokenEnv::USUARIO);

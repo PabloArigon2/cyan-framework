@@ -66,7 +66,7 @@ final class Permissions {
     }
 
     public static function CreateRole($empresa_id, $nome, array $perms, $is_default = 0, $is_system = 0) {
-        $sql = \Database::Query("SELECT * FROM roles WHERE nome = ? AND empresa_id = ?", [ $nome, $empresa_id ]);
+        $sql = \Database::Query("SELECT * FROM roles WHERE nome = ? AND empresa_id <=> ?", [ $nome, $empresa_id ]);
 
         if ($sql->valid()) 
             return [ "Status" => false, "Mensagem" => "A Role ".$nome." já existe para esta empresa! Por favor, escolha outro nome!", "Erro" => "" ];
@@ -85,12 +85,12 @@ final class Permissions {
     }
 
     public static function UpdateRole($id, $empresa_id, $nome, array $perms, $is_default = 0, $is_system = 0) {
-        $sql = \Database::Query("SELECT * FROM roles WHERE nome = ? AND empresa_id = ? AND id != ?", [ $nome, $empresa_id, $id ]);
+        $sql = \Database::Query("SELECT * FROM roles WHERE nome = ? AND empresa_id <=> ? AND id != ?", [ $nome, $empresa_id, $id ]);
 
         if ($sql->valid()) 
             return [ "Status" => false, "Mensagem" => "A Role ".$nome." já existe para esta empresa! Por favor, escolha outro nome!", "Erro" => "" ];
 
-        $sql = \Database::Query("UPDATE roles SET nome = ?, is_default = ?, is_system = ? WHERE id = ? AND empresa_id = ?", [
+        $sql = \Database::Query("UPDATE roles SET nome = ?, is_default = ?, is_system = ? WHERE id = ? AND empresa_id <=> ?", [
             $nome, $is_default, $is_system, $id, $empresa_id
         ]);
 

@@ -133,6 +133,16 @@ class Security {
     public static function CheckPassword($str, $hash) {
         return password_verify($str, $hash);
     }
+
+    public static function Signature($userId, $email) {
+        return hash_hmac('sha256', "$userId#$email", self::DeriveKey('hash_signature'), true);
+    }
+
+    public static function IsAdmin($userId, $email, $storedHash) {
+        if (empty($storedHash)) return false;
+        $generated = self::Signature($userId, $email);
+        return hash_equals($generated, $storedHash);
+    }
 }
 
 ?>

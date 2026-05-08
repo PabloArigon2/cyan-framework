@@ -101,6 +101,7 @@ public static function Build($arr) : self {
 */
 
 class User {
+    public ?string $Signature = null;
     public ?string $DisplayName = "";
     public ?string $MemberID = "";
     public ?string $Nome = "";

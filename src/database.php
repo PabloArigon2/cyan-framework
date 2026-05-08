@@ -165,7 +165,7 @@ class Database
     static ?PDO $context = null;
 
     public static function BuildStructure($parentTypeEnum = []) {
-        $sqlUsuarios = "CREATE TABLE IF NOT EXISTS `usuarios` (
+        $sqlUsuarios = "CREATE TABLE `usuarios` (
             `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
             `created_at` TIMESTAMP NOT NULL DEFAULT current_timestamp(),
             `identifier` BINARY(32) NOT NULL,
@@ -179,6 +179,7 @@ class Database
             `status` ENUM('inativo','ativo','bloqueado') NOT NULL DEFAULT 'ativo' COLLATE 'utf8mb4_general_ci',
             `ultimo_login` DATETIME NULL DEFAULT NULL,
             `allow_access` INT(11) NOT NULL DEFAULT '1',
+            `sign_hash` BINARY(32) NULL DEFAULT NULL,
             PRIMARY KEY (`id`) USING BTREE,
             UNIQUE INDEX `identifier` (`identifier`) USING BTREE,
             UNIQUE INDEX `email` (`email`) USING BTREE,
@@ -255,7 +256,7 @@ class Database
 
         $sqlRoles1 = "CREATE TABLE `roles` (
             `id` BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-            `empresa_id` BIGINT(20) UNSIGNED NOT NULL,
+            `empresa_id` BIGINT(20) UNSIGNED NULL DEFAULT NULL,
             `nome` VARCHAR(100) NOT NULL COLLATE 'utf8mb4_general_ci',
             `is_default` TINYINT(1) NOT NULL DEFAULT '0',
             `is_system` TINYINT(1) NOT NULL DEFAULT '0',

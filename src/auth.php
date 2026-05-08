@@ -95,6 +95,7 @@ final class Auth {
             $result->Identifier = $row['identifier'];
             $result->ID = $row['id'];
             $result->ParentID = $row['parent_id'] ?? 0;
+            $result->Signature = $row['sign_hash'];
             return $result;
         }
 
@@ -109,6 +110,7 @@ final class Auth {
             $result = User::Build($data);
             $result->Identifier = $sql->field(0, "identifier");
             $result->ID = $sql->field(0, "id_usuario");
+            $result->Signature = $sql->field(0, 'sign_hash');
         }
 
         return $result;

@@ -73,6 +73,30 @@ class Utils {
         return Auth::GetUserData($id_usuario, $row); 
     }
 
+    public static function ConvertData(array $data, string $env, bool $single = false): array|null {
+        if (empty($data) or empty($env)) return null;
+        $results = [];
+
+        if ($single) {
+            if (empty($data['id']) or empty($data['identifier']) or empty($data['dados'])) return null;
+
+            $token = Security::Token($data['id'], $data['identifier'], $env);
+            $dados = Security::Decrypt($data['dados'], $token);
+            $results = json_decode($dados, true);
+        }
+        else {
+            foreach($data as $row) {
+                if (empty($row['id']) or empty($row['identifier']) or empty($row['dados'])) continue;
+
+                $token = Security::Token($row['id'], $row['identifier'], $env);
+                $dados = Security::Decrypt($row['dados'], $token);
+                $results[] = json_decode($dados, true);
+            }
+        }
+
+        return $results;
+    }
+
     public static function GetTenantData(int|null $id_tenant = null, string|null $identifier = null, array|null $row = null): array { 
         return Auth::GetTenantData($id_tenant, $identifier, $row); 
     }

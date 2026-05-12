@@ -231,6 +231,45 @@ class Logs {
 
         return $sql->valid();
     }
+
+    public static function acesso($status, $parent, $usuario = null, string $level = "info", bool $admin = false, bool $empresa = false) {
+        $ctx = self::GetLogContext();
+        $remote = $_SERVER['REMOTE_ADDR'] ?? '';
+        $proxy = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? '';
+        $shared = $_SERVER['HTTP_CLIENT_IP'] ?? '';
+        $user_obj = Utils::CurrentUser();
+        $user = (empty($usuario)) ? ($user_obj ? $user_obj->ID : 0) : $usuario;
+
+        $msg = "";
+
+        if ($admin) {
+            $msg = "Acessou o painel administrativo!";
+        }
+        else if ($empresa) {
+            $msg = "Acessou o portal empresarial!";
+        }
+        else {
+            $msg = "Logou na plataforma ecoglobal!";
+        }
+
+        if (empty($level)) $level = 'info';
+
+        $sql = \Database::Query("INSERT INTO logs_acesso(usuario, event, status, remote_address, proxy_address, shared_address, remote_hash, proxy_hash, shared_hash, parent, level) VALUES(?,?,?,?,?,?,?,?,?,?,?)", [
+            (empty($user)) ? 0 : $user,
+            , 
+            $status,
+            (!empty($remote)) ? \Security::Encrypt($remote) : null,
+            (!empty($proxy)) ? \Security::Encrypt($proxy) : null,
+            (!empty($shared)) ? \Security::Encrypt($shared) : null,
+            (!empty($remote)) ? \Security::Hash($remote) : null,
+            (!empty($proxy)) ? \Security::Hash($proxy) : null,
+            (!empty($shared)) ? \Security::Hash($shared) : null,
+            $parent,
+            $level
+        ], $ctx);
+
+        return $sql->valid();
+    }
 }
 
 ?>

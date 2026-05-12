@@ -296,6 +296,27 @@ class Database
         ;
         ";
 
+        $sqlLogsAcesso = "CREATE TABLE `logs_acesso` (
+            `id` INT(11) NOT NULL AUTO_INCREMENT,
+            `created_at` DATETIME NULL DEFAULT current_timestamp(),
+            `usuario` INT(11) NULL DEFAULT NULL,
+            `event` LONGTEXT NULL DEFAULT NULL COLLATE 'utf8mb4_general_ci',
+            `status` INT(11) NULL DEFAULT NULL,
+            `remote_address` BINARY(32) NULL DEFAULT NULL,
+            `proxy_address` BINARY(32) NULL DEFAULT NULL,
+            `shared_address` BINARY(32) NULL DEFAULT NULL,
+            `remote_hash` BINARY(32) NULL DEFAULT NULL,
+            `proxy_hash` BINARY(32) NULL DEFAULT NULL,
+            `shared_hash` BINARY(32) NULL DEFAULT NULL,
+            `parent` INT(11) NULL DEFAULT NULL,
+            `level` ENUM('critico','debug','info','aviso','erro','alerta') NULL DEFAULT 'info' COLLATE 'utf8mb4_general_ci',
+            PRIMARY KEY (`id`) USING BTREE
+        )
+        COLLATE='utf8mb4_general_ci'
+        ENGINE=InnoDB
+        ;
+        ";
+
         Database::Transaction();
         $execUsuarios = Database::Query($sqlUsuarios);
         $execTenant = Database::Query($sqlTenant);
@@ -304,11 +325,12 @@ class Database
         $execRoles1 = Database::Query($sqlRoles1);
         $execRoles2 = Database::Query($sqlRoles2);
         $execRoles3 = Database::Query($sqlRoles3);
+        $execLogsAcesso = Database::Query($sqlLogsAcesso);
 
         if (!$execUsuarios->valid() or !$execTenant->valid() or !$execLogs->valid() or !$execAudit->valid() or 
-            !$execRoles1->valid() or !$execRoles2->valid() or !$execRoles3->valid()){
+            !$execRoles1->valid() or !$execRoles2->valid() or !$execRoles3->valid() or !$execLogsAcesso->valid()){
             Database::Revert();
-            $errors = [ "Usuarios" => $execUsuarios->error(), "Tenant" => $execTenant->error(), "Logs" => $execLogs->error(), "Audit" => $execAudit->error(), "Roles1" => $execRoles1->error(), "Roles2" => $execRoles2->error(), "Roles3" => $execRoles3->error() ];
+            $errors = [ "Usuarios" => $execUsuarios->error(), "Tenant" => $execTenant->error(), "Logs" => $execLogs->error(), "Audit" => $execAudit->error(), "Roles1" => $execRoles1->error(), "Roles2" => $execRoles2->error(), "Roles3" => $execRoles3->error(), "LogsAcesso" => $execLogsAcesso->error() ];
             throw new Exception("Erro ao inicializar estrutura do banco de dados! Data: ".json_encode($errors, JSON_UNESCAPED_UNICODE));
         }
 

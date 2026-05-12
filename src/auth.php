@@ -23,6 +23,7 @@ final class Auth {
             $tenant->Valid = true;
             $tenant->User = $user;
             $tenant->ParentID = $_SESSION['businessid'] ?? 0;
+            $tenant->IsAdmin = Security::IsAdmin($user->ID, $user->Email, $user->Signature);
 
             $envUse = "user_tenant";
         }
@@ -84,7 +85,7 @@ final class Auth {
         return null;
     }
 
-    public static function GetUserData(int|null $id_usuario = null, array|null $row = null) : User|null {
+    public static function GetUserData(int|null $id_usuario = null) : User|null {
         $result = new User();
 
         if (empty($id_usuario)) return $result;
@@ -99,6 +100,24 @@ final class Auth {
             $result->Identifier = $sql->field(0, "identifier");
             $result->ID = $sql->field(0, "id_usuario");
             $result->Signature = $sql->field(0, 'sign_hash');
+        }
+
+        return $result;
+    }
+
+    public static function ProcessUserData(array|null $row = null, bool $getSignature = false) : User|null {
+        $result = new User();
+
+        if (!empty($row) and !empty($row['dados'])) {
+            $token = Security::Token($row['id'], $row['identifier'], TokenEnv::USUARIO);
+            $data = Security::Decrypt($row['dados'], $token);
+            $data = json_decode($data, true);
+            $result = User::Build($data);
+            $result->Identifier = $row['identifier'];
+            $result->ID = $row['id'];
+            $result->ParentID = $row['parent_id'] ?? 0;
+            $result->Signature = $row['sign_hash'] ?? ($getSignature ? self::GetUserSignature($row['id']) : null);
+            return $result;
         }
 
         return $result;

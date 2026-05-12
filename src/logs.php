@@ -256,7 +256,7 @@ class Logs {
 
         $sql = \Database::Query("INSERT INTO logs_acesso(usuario, event, status, remote_address, proxy_address, shared_address, remote_hash, proxy_hash, shared_hash, parent, level) VALUES(?,?,?,?,?,?,?,?,?,?,?)", [
             (empty($user)) ? 0 : $user,
-            , 
+            $msg, 
             $status,
             (!empty($remote)) ? \Security::Encrypt($remote) : null,
             (!empty($proxy)) ? \Security::Encrypt($proxy) : null,

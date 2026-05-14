@@ -6,6 +6,7 @@
  */
 
 use Predis\Client as PredisClient;
+use Predis\Connection\ConnectionException;
 
 final class Driver {
     public const FILE = 'file';
@@ -544,10 +545,6 @@ final class PredisDriver implements ICacheDriver {
     }
 
     public function __construct(array $config = []) {
-        if (!class_exists('Redis')) {
-            throw new Exception("Extensão Redis não encontrada.");
-        }
-
         try {
             $this->redis = new PredisClient([
                 'scheme' => 'tcp',
@@ -557,15 +554,13 @@ final class PredisDriver implements ICacheDriver {
                 'database' => $config['database'] ?? 0
             ]);
 
-            if ($this->redis and $this->redis->isConnected()) {
+            $this->redis->ping();
+
+            if ($this->redis->isConnected()) {
                 $this->conn = true;
             }
-            else {
-                $this->conn = false;
-                throw new Exception("Connection failed Predis!", 1);
-            }
         }
-        catch(Throwable $ex) {
+        catch(ConnectionException $ex) {
             $this->conn = false;
             throw new Exception("Connection failed Predis: {$ex->getMessage()}", 1);
         }
@@ -573,20 +568,20 @@ final class PredisDriver implements ICacheDriver {
 
     public function deleteByPattern(string $pattern): int
     {
-        $it = null;
         $deleted = 0;
+        $cursor = 0;
 
         do {
-           [$cursor, $keys] = $this->redis->scan($cursor, [
+            [$cursor, $keys] = $this->redis->scan($cursor, [
                 'MATCH' => $pattern,
-                'COUNT' => 100,
+                'COUNT' => 1000,
             ]);
 
-            foreach ($keys as $key) {
-                $this->redis->del($key);
+            if (!empty($keys)) {
+                $deleted += $this->redis->del($keys);
             }
 
-        } while ($it > 0);
+        } while ($cursor != 0);
 
         return $deleted;
     }
@@ -601,11 +596,9 @@ final class PredisDriver implements ICacheDriver {
         if ($value === null) return false;
         $packed = $this->pack($value, $secure);
         if ($ttl === 0) {
-            $this->redis->set($key, $packed);
-            return true;
+            return $this->redis->set($key, $packed)->getPayload() == 'OK';
         }
-        $this->redis->setex($key, $ttl, $packed);
-        return true;
+        return $this->redis->setex($key, $ttl, $packed)->getPayload() == 'OK';
     }
 
     public function del(string $key): bool {
@@ -613,21 +606,20 @@ final class PredisDriver implements ICacheDriver {
     }
 
     public function flush(): bool {
-        $it = null;
         $deleted = 0;
-        $pattern = "*";
+        $cursor = 0;
 
         do {
-           [$cursor, $keys] = $this->redis->scan($cursor, [
-                'MATCH' => $pattern,
-                'COUNT' => 100,
+            [$cursor, $keys] = $this->redis->scan($cursor, [
+                'MATCH' => '*',
+                'COUNT' => 1000,
             ]);
 
-            foreach ($keys as $key) {
-                $this->redis->del($key);
+            if (!empty($keys)) {
+                $deleted += $this->redis->del($keys);
             }
 
-        } while ($it > 0);
+        } while ($cursor != 0);
 
         return $deleted;
     }

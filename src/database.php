@@ -415,9 +415,9 @@ class Database
         $cleanStr = preg_replace('/^\s*(?:--[^\r\n]*(?:\r?\n|$)|\/\*.*?\*\/\s*)+/s', '', $str);
         $isSelect = preg_match('/^\s*(SELECT|SHOW|DESCRIBE|DESC|EXPLAIN|WITH)\b/i', $cleanStr);
 
-        if (empty(self::$cache) and !self::$CacheUnavailable and !self::$onTransaction) {
+        if (empty(self::$cache) and !self::$CacheUnavailable and !self::$onTransaction and $isSelect) {
             try {
-                self::$cache = Cache::init(Driver::REDIS);
+                self::$cache = Cache::init(Driver::PREDIS);
             }
             catch(Throwable $ex) {
                 self::$cache = null;

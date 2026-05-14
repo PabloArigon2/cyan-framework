@@ -69,8 +69,12 @@ class Utils {
         return Auth::GetUser($id); 
     }
 
-    public static function GetUserData(int|null $id_usuario = null, array|null $row = null): User|null { 
-        return Auth::GetUserData($id_usuario, $row); 
+    public static function GetUserData(int|null $id_usuario = null): User|null { 
+        return Auth::GetUserData($id_usuario); 
+    }
+
+    public static function ProcessUserData(array $row, bool $getSignature = false) : ?User {
+        return Auth::ProcessUserData($row, $getSignature);
     }
 
     public static function ConvertData(array $data, string $env, bool $single = false): array|null {

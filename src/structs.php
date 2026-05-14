@@ -70,4 +70,8 @@ final class ReqMethod {
     public const PATCH  = 'PATCH';
 }
 
+interface IJob {
+    public function handle(array $data);
+}
+
 ?>

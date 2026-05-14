@@ -156,6 +156,8 @@ class Parameter
 
 class Database
 {
+    private static ?Cache $cache = null;
+    private static bool $CacheUnavailable = false;
     public static $server = "";
     public static $user = "";
     public static $pass = "";
@@ -379,7 +381,7 @@ class Database
         return self::$context;
     }
 
-    public static function Query($str, $params = [], $context = null, $tryCatch = true, $bypass = false) : QueryResult
+    public static function Query($str, $params = [], $context = null, $tryCatch = true, $bypass = false, $cacheTtl = 30) : QueryResult
     {
         $qr = new QueryResult([], $str);
 
@@ -399,13 +401,37 @@ class Database
 
         if ($tryCatch) {
             try {
-                return self::Query($str, $params, $context, false);
+                return self::Query($str, $params, $context, false, $bypass, $cacheTtl);
             }
             catch (Exception $ex) {
                 $qr->SetError($ex->getMessage());
                 if (isset($ex->errorInfo[1])) {
                     $qr->SetErrorCode($ex->errorInfo[1]);
                 }
+                return $qr;
+            }
+        }
+
+        $cleanStr = preg_replace('/^\s*(?:--[^\r\n]*(?:\r?\n|$)|\/\*.*?\*\/\s*)+/s', '', $str);
+        $isSelect = preg_match('/^\s*(SELECT|SHOW|DESCRIBE|DESC|EXPLAIN|WITH)\b/i', $cleanStr);
+
+        if (empty(self::$cache) and !self::$CacheUnavailable and !self::$onTransaction) {
+            try {
+                self::$cache = Cache::init(Driver::REDIS);
+            }
+            catch(Throwable $ex) {
+                self::$cache = null;
+                self::$CacheUnavailable = true;
+            }
+        }
+
+        if (self::$cache and self::$cache->getDriver()->connected() and $isSelect) {
+            $hash = self::$cache->CacheKey($str, self::$dbn, "1", $params);
+            $value = self::$cache->get($hash, true);
+
+            if ($value !== null) {
+                $qr = new QueryResult($value, $str);
+                $qr->setRows(count($value));
                 return $qr;
             }
         }
@@ -439,18 +465,34 @@ class Database
             return $qr;
         }
 
-        $cleanStr = preg_replace('/^\s*(?:--[^\r\n]*(?:\r?\n|$)|\/\*.*?\*\/\s*)+/s', '', $str);
-        $isSelect = preg_match('/^\s*(SELECT|SHOW|DESCRIBE|DESC|EXPLAIN|WITH)\b/i', $cleanStr);
-
         if ($isSelect) {
             $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
             $qr = new QueryResult($rows, $str);
+
+            if (self::$cache and self::$cache->getDriver()->connected() and !self::$onTransaction) {
+                $hash = self::$cache->CacheKey($str, self::$dbn, "1", $params);
+                self::$cache->set($hash, $rows, $cacheTtl, true);
+            }
         } else {
             $qr = new QueryResult(true, $str);
+
+            if (self::$cache and self::$cache->getDriver()->connected() and !self::$onTransaction) {
+                self::invalidateTableCache($str);
+            }
         }
 
         $qr->setRows($stmt->rowCount());
         return $qr;
+    }
+
+    private static function invalidateTableCache(string $sql): void
+    {
+        if (preg_match('/(?:INSERT\s+INTO|UPDATE|DELETE\s+FROM)\s+`?(\w+)`?/i', $sql, $matches)) {
+            $table = strtolower($matches[1]);
+            $pattern = "db:" . self::$dbn . ":{$table}:*";
+
+            self::$cache->deleteByPattern($pattern);
+        }
     }
 
     public static function Transaction($context = null) {

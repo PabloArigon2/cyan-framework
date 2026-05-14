@@ -22,7 +22,6 @@ final class Auth {
             $tenant->NodeServer = false;
             $tenant->Valid = true;
             $tenant->User = $user;
-            $tenant->ParentID = $_SESSION['businessid'] ?? 0;
             $tenant->IsAdmin = Security::IsAdmin($user->ID, $user->Email, $user->Signature);
 
             $envUse = "user_tenant";
@@ -57,6 +56,29 @@ final class Auth {
         }
 
         return [ "Auth" => ($validatedSession || $validatedToken), "Tenant" => $tenant, "Environment" => $envUse ];
+    }
+
+    public static function GetTenantLinked(int $usuario) {
+        if (empty($usuario)) return [];
+        $tenants = [];
+
+        $sql = Database::Query("SELECT id FROM empresas WHERE owner_id = ?", [ $usuario ]);
+        
+        if ($sql->valid()) {
+            foreach($sql->get() as $row) {
+                $tenants[] = intval($row['id']);
+            }
+        }
+
+        $sql = Database::Query("SELECT empresa_id FROM empresa_usuarios WHERE usuario_id = ?", [ $usuario ]);
+
+        if ($sql->valid()) {
+            foreach($sql->get() as $row) {
+                $tenants[] = intval($row['empresa_id']);
+            }
+        }
+
+        return $tenants;
     }
 
     public static function CurrentUser() : User|null {

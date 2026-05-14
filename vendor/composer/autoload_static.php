@@ -6,10 +6,81 @@ namespace Composer\Autoload;
 
 class ComposerStaticInitc2ec338e9ddf5e4b8f7d715c74073692
 {
+    public static $files = array (
+        '320cde22f66dd4f5d3fd621d3e88b98f' => __DIR__ . '/..' . '/symfony/polyfill-ctype/bootstrap.php',
+        '0e6d7bf4a5811bfa5cf40c5ccd6fae6a' => __DIR__ . '/..' . '/symfony/polyfill-mbstring/bootstrap.php',
+        'a4a119a56e50fbb293281d9a48007e0e' => __DIR__ . '/..' . '/symfony/polyfill-php80/bootstrap.php',
+        'd92f49fe138fde4e7a3ec6f988960524' => __DIR__ . '/..' . '/stripe/stripe-php/lib/version_check.php',
+    );
+
+    public static $prefixLengthsPsr4 = array (
+        'S' =>
+        array (
+            'Symfony\\Polyfill\\Php80\\' => 23,
+            'Symfony\\Polyfill\\Mbstring\\' => 26,
+            'Symfony\\Polyfill\\Ctype\\' => 23,
+            'Stripe\\' => 7,
+        ),
+        'P' =>
+        array (
+            'Psr\\Http\\Message\\' => 17,
+            'Predis\\' => 7,
+            'PhpOption\\' => 10,
+        ),
+        'G' =>
+        array (
+            'GrahamCampbell\\ResultType\\' => 26,
+        ),
+        'D' =>
+        array (
+            'Dotenv\\' => 7,
+        ),
+    );
+
+    public static $prefixDirsPsr4 = array (
+        'Symfony\\Polyfill\\Php80\\' =>
+        array (
+            0 => __DIR__ . '/..' . '/symfony/polyfill-php80',
+        ),
+        'Symfony\\Polyfill\\Mbstring\\' =>
+        array (
+            0 => __DIR__ . '/..' . '/symfony/polyfill-mbstring',
+        ),
+        'Symfony\\Polyfill\\Ctype\\' =>
+        array (
+            0 => __DIR__ . '/..' . '/symfony/polyfill-ctype',
+        ),
+        'Stripe\\' =>
+        array (
+            0 => __DIR__ . '/..' . '/stripe/stripe-php/lib',
+        ),
+        'Psr\\Http\\Message\\' =>
+        array (
+            0 => __DIR__ . '/..' . '/psr/http-message/src',
+        ),
+        'Predis\\' =>
+        array (
+            0 => __DIR__ . '/..' . '/predis/predis/src',
+        ),
+        'PhpOption\\' =>
+        array (
+            0 => __DIR__ . '/..' . '/phpoption/phpoption/src/PhpOption',
+        ),
+        'GrahamCampbell\\ResultType\\' =>
+        array (
+            0 => __DIR__ . '/..' . '/graham-campbell/result-type/src',
+        ),
+        'Dotenv\\' =>
+        array (
+            0 => __DIR__ . '/..' . '/vlucas/phpdotenv/src',
+        ),
+    );
+
     public static $classMap = array (
         'Action' => __DIR__ . '/../..' . '/src/actions.php',
         'ActionHelper' => __DIR__ . '/../..' . '/src/helpers.php',
         'ApiResponse' => __DIR__ . '/../..' . '/src/response.php',
+        'Attribute' => __DIR__ . '/..' . '/symfony/polyfill-php80/Resources/stubs/Attribute.php',
         'Auth' => __DIR__ . '/../..' . '/src/auth.php',
         'CSRF' => __DIR__ . '/../..' . '/src/csrf.php',
         'Cache' => __DIR__ . '/../..' . '/src/cache.php',
@@ -43,6 +114,7 @@ class ComposerStaticInitc2ec338e9ddf5e4b8f7d715c74073692
         'Http' => __DIR__ . '/../..' . '/src/http.php',
         'HttpCode' => __DIR__ . '/../..' . '/src/structs.php',
         'ICacheDriver' => __DIR__ . '/../..' . '/src/cache.php',
+        'IJob' => __DIR__ . '/../..' . '/src/structs.php',
         'InputResolver' => __DIR__ . '/../..' . '/src/helpers.php',
         'JSON' => __DIR__ . '/../..' . '/src/structs.php',
         'Lang' => __DIR__ . '/../..' . '/src/locale.php',
@@ -50,32 +122,42 @@ class ComposerStaticInitc2ec338e9ddf5e4b8f7d715c74073692
         'Logs' => __DIR__ . '/../..' . '/src/logs.php',
         'Math' => __DIR__ . '/../..' . '/src/math.php',
         'MemoryDriver' => __DIR__ . '/../..' . '/src/cache.php',
-        'Modules\\Payment\\ACCOUNT' => __DIR__ . '/../..' . '/src/Modules/Payment/Asaas.php',
-        'Modules\\Payment\\ANTECIPATION' => __DIR__ . '/../..' . '/src/Modules/Payment/Asaas.php',
-        'Modules\\Payment\\Ambients' => __DIR__ . '/../..' . '/src/Modules/Payment/Asaas.php',
-        'Modules\\Payment\\Asaas' => __DIR__ . '/../..' . '/src/Modules/Payment/Asaas.php',
-        'Modules\\Payment\\AsaasErrors' => __DIR__ . '/../..' . '/src/Modules/Payment/Asaas.php',
-        'Modules\\Payment\\AsaasURL' => __DIR__ . '/../..' . '/src/Modules/Payment/Asaas.php',
-        'Modules\\Payment\\BILL' => __DIR__ . '/../..' . '/src/Modules/Payment/Asaas.php',
-        'Modules\\Payment\\BillingType' => __DIR__ . '/../..' . '/src/Modules/Payment/Asaas.php',
-        'Modules\\Payment\\CHECKOUT' => __DIR__ . '/../..' . '/src/Modules/Payment/Asaas.php',
-        'Modules\\Payment\\ChargeType' => __DIR__ . '/../..' . '/src/Modules/Payment/Asaas.php',
-        'Modules\\Payment\\CheckoutItem' => __DIR__ . '/../..' . '/src/Modules/Payment/Asaas.php',
-        'Modules\\Payment\\Cobrancas' => __DIR__ . '/../..' . '/src/Modules/Payment/Asaas.php',
-        'Modules\\Payment\\INVOICE' => __DIR__ . '/../..' . '/src/Modules/Payment/Asaas.php',
-        'Modules\\Payment\\PAYMENT' => __DIR__ . '/../..' . '/src/Modules/Payment/Asaas.php',
-        'Modules\\Payment\\SUBSCRIPTION' => __DIR__ . '/../..' . '/src/Modules/Payment/Asaas.php',
-        'Modules\\Payment\\SubscriptionCycle' => __DIR__ . '/../..' . '/src/Modules/Payment/Asaas.php',
-        'Modules\\Payment\\TRANSFER' => __DIR__ . '/../..' . '/src/Modules/Payment/Asaas.php',
+        'Modules\\Payment\\Asaas\\ACCOUNT' => __DIR__ . '/../..' . '/src/Modules/Payment/Asaas.php',
+        'Modules\\Payment\\Asaas\\ANTECIPATION' => __DIR__ . '/../..' . '/src/Modules/Payment/Asaas.php',
+        'Modules\\Payment\\Asaas\\Ambients' => __DIR__ . '/../..' . '/src/Modules/Payment/Asaas.php',
+        'Modules\\Payment\\Asaas\\Asaas' => __DIR__ . '/../..' . '/src/Modules/Payment/Asaas.php',
+        'Modules\\Payment\\Asaas\\AsaasErrors' => __DIR__ . '/../..' . '/src/Modules/Payment/Asaas.php',
+        'Modules\\Payment\\Asaas\\AsaasURL' => __DIR__ . '/../..' . '/src/Modules/Payment/Asaas.php',
+        'Modules\\Payment\\Asaas\\BILL' => __DIR__ . '/../..' . '/src/Modules/Payment/Asaas.php',
+        'Modules\\Payment\\Asaas\\BillingType' => __DIR__ . '/../..' . '/src/Modules/Payment/Asaas.php',
+        'Modules\\Payment\\Asaas\\CHECKOUT' => __DIR__ . '/../..' . '/src/Modules/Payment/Asaas.php',
+        'Modules\\Payment\\Asaas\\ChargeType' => __DIR__ . '/../..' . '/src/Modules/Payment/Asaas.php',
+        'Modules\\Payment\\Asaas\\CheckoutItem' => __DIR__ . '/../..' . '/src/Modules/Payment/Asaas.php',
+        'Modules\\Payment\\Asaas\\Cobrancas' => __DIR__ . '/../..' . '/src/Modules/Payment/Asaas.php',
+        'Modules\\Payment\\Asaas\\INVOICE' => __DIR__ . '/../..' . '/src/Modules/Payment/Asaas.php',
+        'Modules\\Payment\\Asaas\\PAYMENT' => __DIR__ . '/../..' . '/src/Modules/Payment/Asaas.php',
+        'Modules\\Payment\\Asaas\\SUBSCRIPTION' => __DIR__ . '/../..' . '/src/Modules/Payment/Asaas.php',
+        'Modules\\Payment\\Asaas\\SubscriptionCycle' => __DIR__ . '/../..' . '/src/Modules/Payment/Asaas.php',
+        'Modules\\Payment\\Asaas\\TRANSFER' => __DIR__ . '/../..' . '/src/Modules/Payment/Asaas.php',
+        'Modules\\Payment\\Stripe\\AccountOwner' => __DIR__ . '/../..' . '/src/Modules/Payment/Stripe.php',
+        'Modules\\Payment\\Stripe\\Ambients' => __DIR__ . '/../..' . '/src/Modules/Payment/Stripe.php',
+        'Modules\\Payment\\Stripe\\BusinessType' => __DIR__ . '/../..' . '/src/Modules/Payment/Stripe.php',
+        'Modules\\Payment\\Stripe\\Controllers' => __DIR__ . '/../..' . '/src/Modules/Payment/Stripe.php',
+        'Modules\\Payment\\Stripe\\Intervals' => __DIR__ . '/../..' . '/src/Modules/Payment/Stripe.php',
+        'Modules\\Payment\\Stripe\\Stripe' => __DIR__ . '/../..' . '/src/Modules/Payment/Stripe.php',
+        'Modules\\Payment\\Stripe\\TaxBehaviour' => __DIR__ . '/../..' . '/src/Modules/Payment/Stripe.php',
         'Parameter' => __DIR__ . '/../..' . '/src/database.php',
         'Payload' => __DIR__ . '/../..' . '/src/storage.php',
         'PayloadRegistry' => __DIR__ . '/../..' . '/src/storage.php',
         'Payloads' => __DIR__ . '/../..' . '/src/storage.php',
         'Permissions' => __DIR__ . '/../..' . '/src/permissions.php',
         'Pessoa' => __DIR__ . '/../..' . '/src/structs.php',
+        'PhpToken' => __DIR__ . '/..' . '/symfony/polyfill-php80/Resources/stubs/PhpToken.php',
         'PostProcessing' => __DIR__ . '/../..' . '/src/post_processing.php',
+        'PredisDriver' => __DIR__ . '/../..' . '/src/cache.php',
         'QB' => __DIR__ . '/../..' . '/src/qb.php',
         'QueryResult' => __DIR__ . '/../..' . '/src/database.php',
+        'Queue' => __DIR__ . '/../..' . '/src/queue.php',
         'RedisDriver' => __DIR__ . '/../..' . '/src/cache.php',
         'ReqMethod' => __DIR__ . '/../..' . '/src/structs.php',
         'Request' => __DIR__ . '/../..' . '/src/helpers.php',
@@ -86,19 +168,24 @@ class ComposerStaticInitc2ec338e9ddf5e4b8f7d715c74073692
         'Startup' => __DIR__ . '/../..' . '/src/startup.php',
         'Str' => __DIR__ . '/../..' . '/src/str.php',
         'Stream' => __DIR__ . '/../..' . '/src/stream.php',
+        'Stringable' => __DIR__ . '/..' . '/symfony/polyfill-php80/Resources/stubs/Stringable.php',
         'Tenant' => __DIR__ . '/../..' . '/src/builder.php',
         'TokenEnv' => __DIR__ . '/../..' . '/src/structs.php',
+        'UnhandledMatchError' => __DIR__ . '/..' . '/symfony/polyfill-php80/Resources/stubs/UnhandledMatchError.php',
         'Url' => __DIR__ . '/../..' . '/src/http.php',
         'User' => __DIR__ . '/../..' . '/src/builder.php',
         'UserType' => __DIR__ . '/../..' . '/src/structs.php',
         'Utils' => __DIR__ . '/../..' . '/src/utils.php',
         'Validate' => __DIR__ . '/../..' . '/src/validate.php',
+        'ValueError' => __DIR__ . '/..' . '/symfony/polyfill-php80/Resources/stubs/ValueError.php',
         'ViewContext' => __DIR__ . '/../..' . '/src/router.php',
     );
 
     public static function getInitializer(ClassLoader $loader)
     {
         return \Closure::bind(function () use ($loader) {
+            $loader->prefixLengthsPsr4 = ComposerStaticInitc2ec338e9ddf5e4b8f7d715c74073692::$prefixLengthsPsr4;
+            $loader->prefixDirsPsr4 = ComposerStaticInitc2ec338e9ddf5e4b8f7d715c74073692::$prefixDirsPsr4;
             $loader->classMap = ComposerStaticInitc2ec338e9ddf5e4b8f7d715c74073692::$classMap;
 
         }, null, ClassLoader::class);

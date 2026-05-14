@@ -5,21 +5,26 @@
  * Contrato para todos os drivers de cache do framework.
  */
 
+use Predis\Client as PredisClient;
+
 final class Driver {
     public const FILE = 'file';
     public const REDIS = 'redis';
     public const MEMORY = 'memory';
+    public const PREDIS = 'predis';
 }
 
 interface ICacheDriver {
     public function get(string $key, bool $secured = false);
     public function set(string $key, $value, int $ttl, bool $secure = false): bool;
-    public function forget(string $key): bool;
+    public function del(string $key): bool;
     public function flush(): bool;
     public function allowClass(string $string): bool;
     public function removeClass(string $string): bool;
     public function append(string $key, $value, bool $secure = false): bool;
     public function read(string $key, bool $secured = false): array;
+    public function connected() : bool;
+    public function deleteByPattern(string $pattern): int; // <-- novo
 }
 
 /**
@@ -66,18 +71,29 @@ trait CacheHelper {
     }
 
     protected function unpack(?string $data, bool $secured) {
-        if ($data === null) return null;
+        if ($data === null || $data === '') return null;
 
         try {
             if ($secured) {
                 $data = Security::Decrypt($data, Security::DeriveKey("cache_encrypt"));
+
+                if ($data === false || $data === null || $data === '') {
+                    return null;
+                }
             }
-            
-            return unserialize($data, [
+
+            $result = unserialize($data, [
                 'allowed_classes' => $this->allowed_classes
             ]);
+
+            if ($result === false && $data !== 'b:0;') {
+                return null;
+            }
+
+            return $result;
+
         } catch (\Throwable $e) {
-            error_log("Cache decompress error: " . $e->getMessage());
+            error_log("Cache unpack error: " . $e->getMessage());
             return null;
         }
     }
@@ -91,6 +107,15 @@ final class MemoryDriver implements ICacheDriver {
     use CacheHelper;
     private static array $storage = [];
     private string $prefix = "";
+
+    public function deleteByPattern(string $pattern): int
+    {
+        return 0; // wildcard só faz sentido no Redis
+    }
+
+    public function connected(): bool {
+        return true;
+    }
 
     public function append(string $key, $value, bool $secure = false): bool {
         if ($value === null) return false;
@@ -172,7 +197,7 @@ final class MemoryDriver implements ICacheDriver {
         return true;
     }
 
-    public function forget(string $key): bool {
+    public function del(string $key): bool {
         unset(self::$storage[$key]);
         return true;
     }
@@ -190,6 +215,15 @@ final class MemoryDriver implements ICacheDriver {
 final class FileDriver implements ICacheDriver {
     use CacheHelper;
     private string $path;
+
+    public function deleteByPattern(string $pattern): int
+    {
+        return 0; // wildcard só faz sentido no Redis
+    }
+
+    public function connected(): bool {
+        return true;
+    }
 
     public function allowClass(string $string): bool {
         return $this->addAllowedClass($string);
@@ -285,7 +319,7 @@ final class FileDriver implements ICacheDriver {
         ) !== false;
     }
 
-    public function forget(string $key): bool {
+    public function del(string $key): bool {
         $file = $this->getFilename($key);
         if (file_exists($file)) {
             return unlink($file);
@@ -308,8 +342,12 @@ final class FileDriver implements ICacheDriver {
  */
 final class RedisDriver implements ICacheDriver {
     use CacheHelper;
-    private $redis;
-    private string $prefix;
+    private Redis $redis;
+    private bool $conn = false;
+
+    public function connected(): bool {
+        return $this->conn;
+    }
 
     public function append(string $key, $value, bool $secure = false): bool {
         if ($value === null) return false;
@@ -325,11 +363,11 @@ final class RedisDriver implements ICacheDriver {
 
         if ($encoded === false) return false;
 
-        return $this->redis->rPush($this->prefix . $key, $encoded) > 0;
+        return $this->redis->rPush($key, $encoded) > 0;
     }
 
     public function read(string $key, bool $secure = false): array {
-        $items = $this->redis->lRange($this->prefix . $key, 0, -1);
+        $items = $this->redis->lRange($key, 0, -1);
 
         if (!$items) return [];
 
@@ -367,21 +405,43 @@ final class RedisDriver implements ICacheDriver {
         if (!class_exists('Redis')) {
             throw new Exception("Extensão Redis não encontrada.");
         }
+
         $this->redis = new Redis();
-        $host = $config['host'] ?? '127.0.0.1';
-        $port = $config['port'] ?? 6379;
-        $pass = $config['password'] ?? null;
-        $this->prefix = $config['prefix'] ?? 'cyan:';
-        if (!$this->redis->connect($host, $port)) {
-            throw new Exception("Não foi possível conectar ao Redis.");
-        }
-        if ($pass) {
-            $this->redis->auth($pass);
+
+        try {
+            $this->redis->connect('127.0.0.1', 6379);
+            if (!empty($config['password'])) {
+                $this->redis->auth($config['password']);
+            }
+
+            $this->conn = true;
+            $this->redis->select((int)($config['database'] ?? 0));
+
+        } catch (Exception $ex) {
+            $this->conn = false;
+            throw new Exception("Connection failed: {$ex->getMessage()}", 1);
         }
     }
 
+    public function deleteByPattern(string $pattern): int
+    {
+        $it = null;
+        $deleted = 0;
+
+        do {
+            $keys = $this->redis->scan($it, $pattern, 1000);
+
+            if ($keys !== false && !empty($keys)) {
+                $deleted += $this->redis->del($keys);
+            }
+
+        } while ($it > 0);
+
+        return $deleted;
+    }
+
     public function get(string $key, bool $secured = false) {
-        $data = $this->redis->get($this->prefix . $key);
+        $data = $this->redis->get($key);
         if ($data === false) return null;
         return $this->unpack($data, $secured);
     }
@@ -390,30 +450,186 @@ final class RedisDriver implements ICacheDriver {
         if ($value === null) return false;
         $packed = $this->pack($value, $secure);
         if ($ttl === 0) {
-            return $this->redis->set($this->prefix . $key, $packed);
+            return $this->redis->set($key, $packed);
         }
-        return $this->redis->setex($this->prefix . $key, $ttl, $packed);
+        return $this->redis->setex($key, $ttl, $packed);
     }
 
-    public function forget(string $key): bool {
-        return $this->redis->del($this->prefix . $key) > 0;
+    public function del(string $key): bool {
+        return $this->redis->del($key) > 0;
+    }
+
+    public function flush(): bool {
+        $it = 0;
+        $deleted = 0;
+        $pattern = '*';
+
+        do {
+            $keys = $this->redis->scan($it, $pattern, 100);
+
+            if ($keys === false) {
+                continue;
+            }
+
+            if (!empty($keys)) {
+                $this->redis->del($keys);
+                $deleted += count($keys);
+            }
+
+        } while ((int)$it !== 0);
+
+        return $deleted > 0;
+    }
+}
+
+final class PredisDriver implements ICacheDriver {
+    use CacheHelper;
+    private PredisClient $redis;
+    private bool $conn = false;
+
+    public function connected(): bool {
+        return $this->conn;
+    }
+
+    public function append(string $key, $value, bool $secure = false): bool {
+        if ($value === null) return false;
+
+        $data = [
+            'value' => $secure
+                ? base64_encode($this->pack($value, true))
+                : $value,
+            'time' => time()
+        ];
+
+        $encoded = json_encode($data, JSON_UNESCAPED_UNICODE);
+
+        if ($encoded === false) return false;
+
+        return $this->redis->rPush($key, $encoded) > 0;
+    }
+
+    public function read(string $key, bool $secure = false): array {
+        $items = $this->redis->lRange($key, 0, -1);
+
+        if (!$items) return [];
+
+        $result = [];
+
+        foreach ($items as $item) {
+            $data = json_decode($item, true);
+
+            if (!$data) continue;
+
+            $value = $data['value'] ?? null;
+
+            if ($secure && $value !== null) {
+                $value = $this->unpack(base64_decode($value), true);
+            }
+
+            $result[] = [
+                'value' => $value,
+                'time'  => $data['time'] ?? null
+            ];
+        }
+
+        return $result;
+    }
+
+    public function allowClass(string $string): bool {
+        return $this->addAllowedClass($string);
+    }
+
+    public function removeClass(string $string): bool {
+        return $this->removeAllowedClass($string);
+    }
+
+    public function __construct(array $config = []) {
+        if (!class_exists('Redis')) {
+            throw new Exception("Extensão Redis não encontrada.");
+        }
+
+        try {
+            $this->redis = new PredisClient([
+                'scheme' => 'tcp',
+                'host' => $config['host'] ?? '127.0.0.1',
+                'port' => $config['port'] ?? 6379,
+                'password' => $config['password'] ?? '',
+                'database' => $config['database'] ?? 0
+            ]);
+
+            if ($this->redis and $this->redis->isConnected()) {
+                $this->conn = true;
+            }
+            else {
+                $this->conn = false;
+                throw new Exception("Connection failed Predis!", 1);
+            }
+        }
+        catch(Throwable $ex) {
+            $this->conn = false;
+            throw new Exception("Connection failed Predis: {$ex->getMessage()}", 1);
+        }
+    }
+
+    public function deleteByPattern(string $pattern): int
+    {
+        $it = null;
+        $deleted = 0;
+
+        do {
+           [$cursor, $keys] = $this->redis->scan($cursor, [
+                'MATCH' => $pattern,
+                'COUNT' => 100,
+            ]);
+
+            foreach ($keys as $key) {
+                $this->redis->del($key);
+            }
+
+        } while ($it > 0);
+
+        return $deleted;
+    }
+
+    public function get(string $key, bool $secured = false) {
+        $data = $this->redis->get($key);
+        if ($data === false) return null;
+        return $this->unpack($data, $secured);
+    }
+
+    public function set(string $key, $value, int $ttl, bool $secure = false): bool {
+        if ($value === null) return false;
+        $packed = $this->pack($value, $secure);
+        if ($ttl === 0) {
+            $this->redis->set($key, $packed);
+            return true;
+        }
+        $this->redis->setex($key, $ttl, $packed);
+        return true;
+    }
+
+    public function del(string $key): bool {
+        return $this->redis->del($key) > 0;
     }
 
     public function flush(): bool {
         $it = null;
         $deleted = 0;
-        $pattern = $this->prefix . '*';
+        $pattern = "*";
 
         do {
-            $keys = $this->redis->scan($it, $pattern, 100);
+           [$cursor, $keys] = $this->redis->scan($cursor, [
+                'MATCH' => $pattern,
+                'COUNT' => 100,
+            ]);
 
-            if (!empty($keys)) {
-                $this->redis->del(...$keys);
-                $deleted += count($keys);
+            foreach ($keys as $key) {
+                $this->redis->del($key);
             }
-        } while ($it !== 0);
 
-        return $deleted > 0;
+        } while ($it > 0);
+
+        return $deleted;
     }
 }
 
@@ -436,6 +652,76 @@ para o redis funcionar, precisa de um servidor, o recomendado seria instala-lo e
 class Cache {
     private ?ICacheDriver $instance = null;
 
+    private static function normalizeSql(string $sql): string {
+        // Remove espaços extras
+        $sql = preg_replace('/\s+/', ' ', trim($sql));
+
+        // Normaliza espaços ao redor de operadores comuns
+        $sql = preg_replace('/\s*([=<>(),])\s*/', '$1', $sql);
+
+        // Uppercase keywords principais (opcional)
+        $keywords = [
+            'select', 'from', 'where', 'and', 'or',
+            'insert', 'into', 'update', 'delete',
+            'join', 'left', 'right', 'inner', 'outer',
+            'on', 'group by', 'order by', 'limit',
+            'values', 'set', 'having'
+        ];
+
+        foreach ($keywords as $keyword) {
+            $sql = preg_replace_callback(
+                '/\b' . preg_quote($keyword, '/') . '\b/i',
+                fn($m) => strtoupper($m[0]),
+                $sql
+            );
+        }
+
+        return $sql;
+    }
+
+    private static function normalizeParams(array $params): array {
+        return array_map(function ($param) {
+            if ($param instanceof Parameter) {
+                return [
+                    'type'  => $param->type,
+                    'value' => $param->value,
+                ];
+            }
+
+            if (is_bool($param)) {
+                return $param ? 1 : 0;
+            }
+
+            if (is_array($param)) {
+                return json_encode($param, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            }
+
+            return $param;
+        }, $params);
+    }
+
+    public function deleteByPattern(string $pattern): int
+    {
+        return $this->getDriver()->deleteByPattern($pattern);
+    }
+
+    public function CacheKey(string $sql, string $dbname, string $version, array $params, array $extra = []): string
+    {
+        $table = '';
+        if (preg_match('/\bFROM\s+`?(\w+)`?/i', $sql, $m)) {
+            $table = strtolower($m[1]);
+        }
+
+        $hash = hash('sha256', json_encode([
+            'sql'     => self::normalizeSql($sql),
+            'params'  => self::normalizeParams($params),
+            'extra'   => $extra,
+            'version' => $version,
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+
+        return "db:{$dbname}:{$table}:{$hash}";
+    }
+
     public static function init(string $driver, array $config = []) : self {
 
         $cache = new self();
@@ -444,6 +730,9 @@ class Cache {
             $driver = Driver::FILE;
 
         switch (strtolower($driver)) {
+            case Driver::PREDIS:
+                $cache->instance = new PredisDriver($config);
+                break;
             case Driver::REDIS:
                 $cache->instance = new RedisDriver($config);
                 break;
@@ -459,7 +748,7 @@ class Cache {
         return $cache;
     }
 
-    private function getDriver(): ICacheDriver {
+    public function getDriver(): ICacheDriver {
         if ($this->instance === null) {
             $this->instance = new MemoryDriver();
         }
@@ -482,8 +771,8 @@ class Cache {
         return $this->getDriver()->set($key, $value, $ttl, $secure);
     }
 
-    public function forget(string $key): bool {
-        return $this->getDriver()->forget($key);
+    public function del(string $key): bool {
+        return $this->getDriver()->del($key);
     }
 
     public function flush(): bool {
@@ -506,67 +795,5 @@ class Cache {
         return $value;
     }
 }
-
-// final class Cache {
-//     private static ?ICacheDriver $instance = null;
-
-//     public static function init(string $driver, array $config = []) {
-
-//         if ($driver == Driver::REDIS and !extension_loaded("redis"))
-//             $driver = Driver::FILE;
-
-//         switch (strtolower($driver)) {
-//             case Driver::REDIS:
-//                 self::$instance = new RedisDriver($config);
-//                 break;
-//             case Driver::FILE:
-//                 self::$instance = new FileDriver($config);
-//                 break;
-//             case Driver::MEMORY:
-//             default:
-//                 self::$instance = new MemoryDriver();
-//                 break;
-//         }
-//     }
-
-//     private static function getDriver(): ICacheDriver {
-//         if (self::$instance === null) {
-//             self::$instance = new MemoryDriver();
-//         }
-//         return self::$instance;
-//     }
-
-//     public static function allowClass(string $string): bool {
-//         return self::getDriver()->allowClass($string);
-//     }
-
-//     public static function removeClass(string $string): bool {
-//         return self::getDriver()->removeClass($string);
-//     }
-
-//     public static function get(string $key, bool $secured = false) {
-//         return self::getDriver()->get($key, $secured);
-//     }
-
-//     public static function set(string $key, $value, int $ttl = 3600, bool $secure = false): bool {
-//         return self::getDriver()->set($key, $value, $ttl, $secure);
-//     }
-
-//     public static function forget(string $key): bool {
-//         return self::getDriver()->forget($key);
-//     }
-
-//     public static function flush(): bool {
-//         return self::getDriver()->flush();
-//     }
-
-//     public static function remember(string $key, int $ttl, callable $callback, bool $secure = false) {
-//         $value = self::get($key, $secure);
-//         if ($value !== null) return $value;
-//         $value = $callback();
-//         self::set($key, $value, $ttl, $secure);
-//         return $value;
-//     }
-// }
 
 ?>

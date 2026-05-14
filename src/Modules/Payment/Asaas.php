@@ -1,6 +1,6 @@
 <?php
 
-namespace Modules\Payment;
+namespace Modules\Payment\Asaas;
 
 class Ambients {
     public const PROD = 0;

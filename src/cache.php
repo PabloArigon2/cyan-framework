@@ -25,7 +25,9 @@ interface ICacheDriver {
     public function append(string $key, $value, bool $secure = false): bool;
     public function read(string $key, bool $secured = false): array;
     public function connected() : bool;
-    public function deleteByPattern(string $pattern): int; // <-- novo
+    public function deleteByPattern(string $pattern): int;
+    public function incr(string $key, int $amount = 1): int;
+    public function expire(string $key, int $ttl): bool;
 }
 
 /**
@@ -489,7 +491,7 @@ final class PredisDriver implements ICacheDriver {
     private bool $conn = false;
 
     public function connected(): bool {
-        return $this->conn;
+        return $this->conn && $this->redis->isConnected();
     }
 
     public function append(string $key, $value, bool $secure = false): bool {

@@ -319,6 +319,22 @@ class Database
         ;
         ";
 
+        $firewall1 = "CREATE TABLE `firewall_attempts` (
+        `id` INT AUTO_INCREMENT PRIMARY KEY,
+        `ip_hash` VARCHAR(255) NOT NULL,
+        `action` VARCHAR(100) NOT NULL,
+        `attempted_at` DATETIME NOT NULL,
+        INDEX `idx_ip_action_time` (`ip_hash`, `action`, `attempted_at`)
+        );";
+
+        $firewall2 = "CREATE TABLE `firewall_blacklist` (
+        `id` INT AUTO_INCREMENT PRIMARY KEY,
+        `ip_hash` VARCHAR(255) NOT NULL UNIQUE,
+        `reason` VARCHAR(255) DEFAULT NULL,
+        `expires_at` DATETIME DEFAULT NULL,
+        `created_at` DATETIME NOT NULL
+        );";
+
         Database::Transaction();
         $execUsuarios = Database::Query($sqlUsuarios);
         $execTenant = Database::Query($sqlTenant);
@@ -328,11 +344,14 @@ class Database
         $execRoles2 = Database::Query($sqlRoles2);
         $execRoles3 = Database::Query($sqlRoles3);
         $execLogsAcesso = Database::Query($sqlLogsAcesso);
+        $execFirewall1 = Database::Query($firewall1);
+        $execFirewall2 = Database::Query($firewall2);
 
         if (!$execUsuarios->valid() or !$execTenant->valid() or !$execLogs->valid() or !$execAudit->valid() or 
-            !$execRoles1->valid() or !$execRoles2->valid() or !$execRoles3->valid() or !$execLogsAcesso->valid()){
+            !$execRoles1->valid() or !$execRoles2->valid() or !$execRoles3->valid() or !$execLogsAcesso->valid() or
+            !$execFirewall1->valid() or !$execFirewall2->valid()){
             Database::Revert();
-            $errors = [ "Usuarios" => $execUsuarios->error(), "Tenant" => $execTenant->error(), "Logs" => $execLogs->error(), "Audit" => $execAudit->error(), "Roles1" => $execRoles1->error(), "Roles2" => $execRoles2->error(), "Roles3" => $execRoles3->error(), "LogsAcesso" => $execLogsAcesso->error() ];
+            $errors = [ "Usuarios" => $execUsuarios->error(), "Tenant" => $execTenant->error(), "Logs" => $execLogs->error(), "Audit" => $execAudit->error(), "Roles1" => $execRoles1->error(), "Roles2" => $execRoles2->error(), "Roles3" => $execRoles3->error(), "LogsAcesso" => $execLogsAcesso->error(), "Firewall1" => $execFirewall1->error(), "Firewall2" => $execFirewall2->error() ];
             throw new Exception("Erro ao inicializar estrutura do banco de dados! Data: ".json_encode($errors, JSON_UNESCAPED_UNICODE));
         }
 
@@ -381,7 +400,7 @@ class Database
         return self::$context;
     }
 
-    public static function Query($str, $params = [], $context = null, $tryCatch = true, $bypass = false, $cacheTtl = 30) : QueryResult
+    public static function Query($str, $params = [], $context = null, $tryCatch = true, $bypass = false, $cacheTtl = 20) : QueryResult
     {
         $qr = new QueryResult([], $str);
 

@@ -1,168 +1,178 @@
 <?php
 
-/**
- * Firewall — Módulo anti-bruteforce com blacklisting e rate-limiting.
- * Integra-se automaticamente ao actions.php para proteger endpoints de API.
- * 
- * Uso:
- *   // No início de login.php ou qualquer endpoint sensível:
- *   Firewall::guard('login', 5, 300);  // max 5 tentativas em 300s por IP
- *   
- *   // Na resposta de falha:
- *   Firewall::recordFailure('login');
- *   
- *   // Na resposta de sucesso (opcional, limpa contador):
- *   Firewall::clearAttempts('login');
- *   
- *   // Blacklist manual:
- *   Firewall::blacklist($ip, 'Ataque automatizado', 3600);
- */
 final class Firewall {
+    private static int $maxAttempts = 50;
+    private static int $windowSec = 50;
+    private static ?Cache $cache = null;
+    private static ?Queue $queue = null;
+
+    private static function init() {
+        if (self::$cache === null) {
+            try {
+                self::$cache = Cache::init(Driver::PREDIS, [ 'database' => 1 ]);
+                // Inicializa a Fila para gravar no DB de forma assíncrona
+                self::$queue = new Queue([ 'database' => 1 ]);
+            } catch(Throwable $ex) {
+                self::$cache = null;
+                self::$queue = null;
+            }
+        }
+    }
+
+    private static function isEnabled(): bool {
+        self::init();
+        return self::$cache && self::$cache->getDriver()->connected();
+    }
 
     /**
-     * Verifica se o IP atual está bloqueado ou excedeu o rate limit.
-     * Se sim, encerra a requisição com 429 Too Many Requests.
-     * 
-     * @param string $action   Identificador da ação (ex: 'login', 'register')
-     * @param int    $maxAttempts Máximo de tentativas permitidas
-     * @param int    $windowSec   Janela de tempo em segundos
+     * Rate Limiter Genérico: Incrementa a cada requisição.
+     * Útil para usar no topo de actions.php (ex: max 50 reqs em 1000s)
      */
-    public static function guard(string $action, int $maxAttempts = 5, int $windowSec = 300): void {
-        $ip = self::getClientIp();
+    public static function protect(string $action, int $maxRequests = 50, int $windowSec = 1): void {
+        if (!self::isEnabled()) return;
 
-        // 1) Verificar blacklist
+        $ip = self::getClientIp();
+        $hashIp = self::hashIp($ip);
+        
+        // 1. Verifica se está na blacklist
         if (self::isBlacklisted($ip)) {
-            http_response_code(403);
+            self::blockResponse('Acesso bloqueado permanentemente.');
+        }
+
+        // 2. Incrementa e verifica o Rate Limit (deslizante)
+        $key = "fw:ratelimit:{$action}:{$hashIp}";
+        $count = (int)(self::$cache->get($key) ?? 0);
+
+        if ($count >= $maxRequests) {
+            http_response_code(429);
             header('Content-Type: application/json');
-            echo json_encode(['Status' => 0, 'Mensagem' => 'Acesso bloqueado.']);
+            header('Retry-After: ' . $windowSec);
+            echo json_encode(['Status' => 0, 'Mensagem' => 'Muitas requisições. Tente novamente mais tarde.']);
             exit;
         }
 
-        // 2) Verificar rate limit
-        $attempts = self::getAttempts($ip, $action, $windowSec);
+        self::$cache->set($key, $count + 1, $windowSec);
+    }
+
+    /**
+     * Guardião baseado em Falhas (ex: falhas de login).
+     * Requer o uso de Firewall::recordFailure() quando algo der errado.
+     */
+    public static function guard(string $action, int $maxAttempts = 5, int $windowSec = 30): void {
+        if (!self::isEnabled()) return;
+
+        $ip = self::getClientIp();
+        $hashIp = self::hashIp($ip);
+
+        if (self::isBlacklisted($ip)) {
+            self::blockResponse('Acesso bloqueado.');
+        }
+
+        $key = "fw:fails:{$action}:{$hashIp}";
+        $attempts = (int)(self::$cache->get($key) ?? 0);
+
         if ($attempts >= $maxAttempts) {
             http_response_code(429);
             header('Content-Type: application/json');
             header('Retry-After: ' . $windowSec);
-            echo json_encode(['Status' => 0, 'Mensagem' => 'Muitas tentativas. Tente novamente mais tarde.']);
+            echo json_encode(['Status' => 0, 'Mensagem' => 'Muitas tentativas falhas. Tente novamente mais tarde.']);
             exit;
         }
     }
 
     /**
-     * Registra uma tentativa falha para o IP atual.
+     * Registra uma falha (ex: senha incorreta)
      */
-    public static function recordFailure(string $action): void {
+    public static function recordFailure(string $action, int $windowSec = 300): void {
+        if (!self::isEnabled()) return;
+
         $ip = self::getClientIp();
-        \Database::Query(
-            "INSERT INTO firewall_attempts (ip_hash, action, attempted_at) VALUES (?, ?, NOW())",
-            [self::hashIp($ip), $action]
-        );
+        $hashIp = self::hashIp($ip);
+        
+        $key = "fw:fails:{$action}:{$hashIp}";
+        $attempts = (int)(self::$cache->get($key) ?? 0);
+        self::$cache->set($key, $attempts + 1, $windowSec);
+
+        // Salva de forma assíncrona no MySQL usando a Queue
+        if (self::$queue) {
+            self::$queue->add('firewall_logs', 'FirewallLogJob', [
+                'type' => 'failure',
+                'ip_hash' => $hashIp,
+                'action' => $action
+            ]);
+        }
     }
 
     /**
-     * Limpa tentativas do IP atual para uma ação (ex: após login bem-sucedido).
+     * Limpa tentativas (ex: após sucesso no login)
      */
     public static function clearAttempts(string $action): void {
+        if (!self::isEnabled()) return;
+
         $ip = self::getClientIp();
-        \Database::Query(
-            "DELETE FROM firewall_attempts WHERE ip_hash = ? AND action = ?",
-            [self::hashIp($ip), $action]
-        );
+        $hashIp = self::hashIp($ip);
+        self::$cache->del("fw:fails:{$action}:{$hashIp}");
+        self::$cache->del("fw:ratelimit:{$action}:{$hashIp}");
+
+        if (self::$queue) {
+            self::$queue->add('firewall_logs', 'FirewallLogJob', [
+                'type' => 'clear',
+                'ip_hash' => $hashIp,
+                'action' => $action
+            ]);
+        }
     }
 
     /**
-     * Conta tentativas do IP dentro da janela de tempo.
-     */
-    private static function getAttempts(string $ip, string $action, int $windowSec): int {
-        $result = \Database::Query(
-            "SELECT COUNT(*) AS total FROM firewall_attempts WHERE ip_hash = ? AND action = ? AND attempted_at >= DATE_SUB(NOW(), INTERVAL ? SECOND)",
-            [self::hashIp($ip), $action, $windowSec]
-        );
-
-        return $result->valid() ? (int)$result->field(0, 'total') : 0;
-    }
-
-    // --- Blacklist Management ---
-
-    /**
-     * Adiciona um IP à blacklist.
-     * @param string  $ip       Endereço IP
-     * @param string  $reason   Motivo do bloqueio
-     * @param int     $duration Duração em segundos (0 = permanente)
+     * Adiciona um IP à blacklist
      */
     public static function blacklist(string $ip, string $reason = '', int $duration = 0): void {
+        if (!self::isEnabled()) return;
+
+        $hashIp = self::hashIp($ip);
         $expiresAt = $duration > 0 ? date('Y-m-d H:i:s', time() + $duration) : null;
+        
+        // Se duration = 0, no redis podemos usar 0 como não expira (ou omitir)
+        // O Cache set com TTL 0 é permanente
+        self::$cache->set("fw:blacklist:{$hashIp}", $reason, $duration);
 
-        \Database::Query(
-            "INSERT INTO firewall_blacklist (ip_hash, reason, expires_at, created_at) VALUES (?, ?, ?, NOW()) ON DUPLICATE KEY UPDATE reason = VALUES(reason), expires_at = VALUES(expires_at)",
-            [self::hashIp($ip), $reason, $expiresAt]
-        );
+        if (self::$queue) {
+            self::$queue->add('firewall_logs', 'FirewallLogJob', [
+                'type' => 'blacklist',
+                'ip_hash' => $hashIp,
+                'reason' => $reason,
+                'expires_at' => $expiresAt
+            ]);
+        }
     }
 
-    /**
-     * Remove um IP da blacklist.
-     */
     public static function unblock(string $ip): void {
-        \Database::Query(
-            "DELETE FROM firewall_blacklist WHERE ip_hash = ?",
-            [self::hashIp($ip)]
-        );
+        if (!self::isEnabled()) return;
+
+        $hashIp = self::hashIp($ip);
+        self::$cache->del("fw:blacklist:{$hashIp}");
+
+        if (self::$queue) {
+            self::$queue->add('firewall_logs', 'FirewallLogJob', [
+                'type' => 'unblock',
+                'ip_hash' => $hashIp
+            ]);
+        }
     }
 
-    /**
-     * Verifica se o IP está na blacklist ativa.
-     */
     public static function isBlacklisted(string $ip): bool {
-        $result = \Database::Query(
-            "SELECT id FROM firewall_blacklist WHERE ip_hash = ? AND (expires_at IS NULL OR expires_at > NOW())",
-            [self::hashIp($ip)]
-        );
-
-        return $result->valid();
+        if (!self::isEnabled()) return false;
+        
+        $hashIp = self::hashIp($ip);
+        return self::$cache->get("fw:blacklist:{$hashIp}") !== null;
     }
 
-    /**
-     * Limpa registros expirados da blacklist e tentativas antigas.
-     * Pode ser chamado periodicamente (cron ou shutdown).
-     */
-    public static function cleanup(int $attemptRetentionSec = 86400): void {
-        // Blacklist expirada
-        \Database::Query("DELETE FROM firewall_blacklist WHERE expires_at IS NOT NULL AND expires_at < NOW()");
-
-        // Tentativas antigas
-        \Database::Query(
-            "DELETE FROM firewall_attempts WHERE attempted_at < DATE_SUB(NOW(), INTERVAL ? SECOND)",
-            [$attemptRetentionSec]
-        );
+    private static function blockResponse(string $message): void {
+        http_response_code(403);
+        header('Content-Type: application/json');
+        echo json_encode(['Status' => 0, 'Mensagem' => $message]);
+        exit;
     }
-
-    // --- Analytics ---
-
-    /**
-     * Retorna as top IPs com mais tentativas no período.
-     */
-    public static function topOffenders(int $topN = 10, int $windowHours = 24): array {
-        $result = \Database::Query(
-            "SELECT ip_hash, action, COUNT(*) AS attempts FROM firewall_attempts WHERE attempted_at >= DATE_SUB(NOW(), INTERVAL ? HOUR) GROUP BY ip_hash, action ORDER BY attempts DESC LIMIT ?",
-            [$windowHours, $topN]
-        );
-
-        return $result->valid() ? $result->get() : [];
-    }
-
-    /**
-     * Retorna todos os IPs bloqueados ativos.
-     */
-    public static function getBlacklist(): array {
-        $result = \Database::Query(
-            "SELECT * FROM firewall_blacklist WHERE expires_at IS NULL OR expires_at > NOW() ORDER BY created_at DESC"
-        );
-
-        return $result->valid() ? $result->get() : [];
-    }
-
-    // --- Internos ---
 
     private static function getClientIp(): string {
         return $_SERVER['HTTP_X_FORWARDED_FOR']
@@ -171,12 +181,44 @@ final class Firewall {
             ?? '0.0.0.0';
     }
 
-    /**
-     * Gera hash HMAC do IP usando a MasterKey — nunca armazenamos IPs em texto plano.
-     */
     private static function hashIp(string $ip): string {
         return \Security::Hash($ip);
     }
 }
 
+/**
+ * Job para rodar de forma assíncrona (via Worker)
+ * Processa as alterações do firewall no banco de dados.
+ */
+class FirewallLogJob implements IJob {
+    public function handle(array $data) {
+        $type = $data['type'] ?? '';
+        $ip_hash = $data['ip_hash'] ?? '';
+        $action = $data['action'] ?? '';
+        
+        if ($type === 'failure') {
+            \Database::Query(
+                "INSERT INTO firewall_attempts (ip_hash, action, attempted_at) VALUES (?, ?, NOW())",
+                [$ip_hash, $action]
+            );
+        } elseif ($type === 'blacklist') {
+            $reason = $data['reason'] ?? null;
+            $expires_at = $data['expires_at'] ?? null;
+            \Database::Query(
+                "INSERT INTO firewall_blacklist (ip_hash, reason, expires_at, created_at) VALUES (?, ?, ?, NOW()) ON DUPLICATE KEY UPDATE reason = VALUES(reason), expires_at = VALUES(expires_at)",
+                [$ip_hash, $reason, $expires_at]
+            );
+        } elseif ($type === 'unblock') {
+            \Database::Query(
+                "DELETE FROM firewall_blacklist WHERE ip_hash = ?",
+                [$ip_hash]
+            );
+        } elseif ($type === 'clear') {
+            \Database::Query(
+                "DELETE FROM firewall_attempts WHERE ip_hash = ? AND action = ?",
+                [$ip_hash, $action]
+            );
+        }
+    }
+}
 ?>

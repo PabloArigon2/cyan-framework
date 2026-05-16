@@ -23,6 +23,10 @@ $base = basename($_SERVER['SCRIPT_FILENAME']);
 $path = $_SERVER['SCRIPT_FILENAME'];
 $auth = false;
 
+$filename = str_replace(".php", "", $_SERVER['SCRIPT_NAME']);
+Firewall::protect($filename, 50, 20);
+Firewall::guard($filename, 10, 30);
+
 if (!ActionHelper::IsBypassed()) {
     $auth = Auth::AuthenticateRequest();
 

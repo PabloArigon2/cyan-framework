@@ -25,3 +25,11 @@
 /vendors/*
 /node_modules/*
 /node_modules
+/.agents
+/.claude
+/.agents/*
+/.claude/*
+/src/Modules/Examples
+/src/Modules/Examples/*
+/skill-lock.json
+/test.php

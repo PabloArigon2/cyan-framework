@@ -111,6 +111,16 @@ final class MemoryDriver implements ICacheDriver {
     private static array $storage = [];
     private string $prefix = "";
 
+    public function incr(string $key, int $amount = 1): int
+    {
+        return 0;
+    }
+
+    public function expire(string $key, int $ttl): bool
+    {
+        return true;
+    }
+
     public function deleteByPattern(string $pattern): int
     {
         return 0; // wildcard só faz sentido no Redis
@@ -218,6 +228,17 @@ final class MemoryDriver implements ICacheDriver {
 final class FileDriver implements ICacheDriver {
     use CacheHelper;
     private string $path;
+
+    public function incr(string $key, int $amount = 1): int
+    {
+        return 0;
+    }
+
+    public function expire(string $key, int $ttl): bool
+    {
+        return true;
+    }
+
 
     public function deleteByPattern(string $pattern): int
     {
@@ -347,6 +368,16 @@ final class RedisDriver implements ICacheDriver {
     use CacheHelper;
     private Redis $redis;
     private bool $conn = false;
+
+    public function incr(string $key, int $amount = 1): int
+    {
+        return 0;
+    }
+
+    public function expire(string $key, int $ttl): bool
+    {
+        return true;
+    }
 
     public function connected(): bool {
         return $this->conn;
@@ -489,6 +520,17 @@ final class PredisDriver implements ICacheDriver {
     use CacheHelper;
     private PredisClient $redis;
     private bool $conn = false;
+
+    public function incr(string $key, int $amount = 1): int
+    {
+        return 0;
+    }
+
+    public function expire(string $key, int $ttl): bool
+    {
+        return true;
+    }
+
 
     public function connected(): bool {
         return $this->conn && $this->redis->isConnected();

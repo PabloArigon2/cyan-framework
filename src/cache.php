@@ -25,9 +25,7 @@ interface ICacheDriver {
     public function append(string $key, $value, bool $secure = false): bool;
     public function read(string $key, bool $secured = false): array;
     public function connected() : bool;
-    public function deleteByPattern(string $pattern): int;
-    public function incr(string $key, int $amount = 1): int;
-    public function expire(string $key, int $ttl): bool;
+    public function deleteByPattern(string $pattern): int;      
 }
 
 /**
@@ -110,16 +108,6 @@ final class MemoryDriver implements ICacheDriver {
     use CacheHelper;
     private static array $storage = [];
     private string $prefix = "";
-
-    public function incr(string $key, int $amount = 1): int
-    {
-        return 0;
-    }
-
-    public function expire(string $key, int $ttl): bool
-    {
-        return true;
-    }
 
     public function deleteByPattern(string $pattern): int
     {
@@ -228,17 +216,6 @@ final class MemoryDriver implements ICacheDriver {
 final class FileDriver implements ICacheDriver {
     use CacheHelper;
     private string $path;
-
-    public function incr(string $key, int $amount = 1): int
-    {
-        return 0;
-    }
-
-    public function expire(string $key, int $ttl): bool
-    {
-        return true;
-    }
-
 
     public function deleteByPattern(string $pattern): int
     {
@@ -368,16 +345,6 @@ final class RedisDriver implements ICacheDriver {
     use CacheHelper;
     private Redis $redis;
     private bool $conn = false;
-
-    public function incr(string $key, int $amount = 1): int
-    {
-        return 0;
-    }
-
-    public function expire(string $key, int $ttl): bool
-    {
-        return true;
-    }
 
     public function connected(): bool {
         return $this->conn;
@@ -520,17 +487,6 @@ final class PredisDriver implements ICacheDriver {
     use CacheHelper;
     private PredisClient $redis;
     private bool $conn = false;
-
-    public function incr(string $key, int $amount = 1): int
-    {
-        return 0;
-    }
-
-    public function expire(string $key, int $ttl): bool
-    {
-        return true;
-    }
-
 
     public function connected(): bool {
         return $this->conn && $this->redis->isConnected();

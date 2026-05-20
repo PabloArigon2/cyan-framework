@@ -9,6 +9,16 @@ class QueryResult
     public $rows = 0;
     public $duplicated = false;
     private $origQuery = "";
+    public int $totalRows = 0;
+    public int $filteredRows = 0;
+
+    public function setTotalRows(int $rows): void {
+        $this->totalRows = $rows;
+    }
+
+    public function setFilteredRows(int $rows): void {
+        $this->filteredRows = $rows;
+    }
 
     function SetError($err)
     {
@@ -380,6 +390,10 @@ class Database
         return self::Query($str, $params, $ctx);
     }
 
+    public static function GetCache(): Cache|null {
+        return self::$CacheUnavailable ? null : self::$cache;
+    }
+
     public static function GetContext()
     {
         return self::$context;
@@ -400,15 +414,58 @@ class Database
         return self::$context;
     }
 
-    public static function Query($str, $params = [], $context = null, $tryCatch = true, $bypass = false, $cacheTtl = 20) : QueryResult
+    private static function validateSafeWrite(string $sql, bool $bypass = false): ?string
+    {
+        if ($bypass) {
+            return null;
+        }
+
+        $clean = self::stripSqlComments($sql);
+        $clean = trim($clean);
+
+        // Bloqueia múltiplas statements simples
+        if (substr_count($clean, ';') > 1 || (str_contains($clean, ';') && !str_ends_with($clean, ';'))) {
+            return "[ DB LOCK ] Múltiplas instruções SQL não são permitidas.";
+        }
+
+        $command = strtolower(strtok($clean, " \t\n\r"));
+
+        if (in_array($command, ['truncate', 'drop', 'alter'], true)) {
+            return "[ DB LOCK ] Operação estrutural perigosa bloqueada.";
+        }
+
+        if (in_array($command, ['update', 'delete'], true)) {
+            if (!preg_match('/\bwhere\b/i', $clean)) {
+                return "[ DB LOCK ] UPDATE/DELETE sem WHERE não pode ser executado.";
+            }
+        }
+
+        return null;
+    }
+
+    private static function stripSqlComments(string $sql): string
+    {
+        // Remove /* ... */
+        $sql = preg_replace('/\/\*.*?\*\//s', ' ', $sql);
+
+        // Remove -- comentário
+        $sql = preg_replace('/--[^\r\n]*/', ' ', $sql);
+
+        // Remove # comentário
+        $sql = preg_replace('/#[^\r\n]*/', ' ', $sql);
+
+        return $sql;
+    }
+
+    public static function Query($str, $params = [], $context = null, $tryCatch = true, $bypass = false, $cacheTtl = 20, ?Filter $filter = null) : QueryResult
     {
         $qr = new QueryResult([], $str);
 
-        if (str_contains(strtolower($str), "update") or str_contains(strtolower($str), "delete")) {
-            if (!str_contains(strtolower($str), "where") and !$bypass) {
-                $qr->SetError("[ DB LOCK ] Uma operação de escrita sem condição não pode ser executada");
-                return $qr;
-            }
+        $error = self::validateSafeWrite($str, $bypass);
+
+        if ($error !== null) {
+            $qr->SetError($error);
+            return $qr;
         }     
 
         if (empty($context)) $context = self::$context;
@@ -418,9 +475,65 @@ class Database
             return $qr;
         }
 
+        if ($filter !== null && preg_match('/^\s*(SELECT|WITH)\b/i', $str)) {
+            // total bruto antes de filtros
+            $totalQr = self::Query(
+                "SELECT COUNT(*) AS total FROM ({$str}) AS q_total",
+                $params,
+                $context,
+                true,
+                $bypass,
+                $cacheTtl
+            );
+
+            $totalRows = 0;
+
+            if ($totalQr->valid()) {
+                $totalRows = (int)($totalQr->get(0)['total'] ?? 0);
+            }
+
+            // aplica search
+            $filteredData = $filter->applySearchToQuery($str, $params);
+
+            // total depois do search, antes do LIMIT
+            $filteredQr = self::Query(
+                "SELECT COUNT(*) AS total FROM ({$filteredData['sql']}) AS q_filtered",
+                $filteredData['params'],
+                $context,
+                true,
+                $bypass,
+                $cacheTtl
+            );
+
+            $filteredRows = 0;
+
+            if ($filteredQr->valid()) {
+                $filteredRows = (int)($filteredQr->get(0)['total'] ?? 0);
+            }
+
+            // aplica paginação final
+            $pagedData = $filter->applyPaginationToQuery(
+                $filteredData['sql'],
+                $filteredData['params']
+            );
+
+            $str = $pagedData['sql'];
+            $params = $pagedData['params'];
+        }
+
         if ($tryCatch) {
             try {
-                return self::Query($str, $params, $context, false, $bypass, $cacheTtl);
+                $result = self::Query($str, $params, $context, false, $bypass, $cacheTtl);
+
+                if (isset($totalRows)) {
+                    $result->setTotalRows($totalRows);
+                }
+
+                if (isset($filteredRows)) {
+                    $result->setFilteredRows($filteredRows);
+                }
+
+                return $result;
             }
             catch (Exception $ex) {
                 $qr->SetError($ex->getMessage());
@@ -451,6 +564,15 @@ class Database
             if ($value !== null) {
                 $qr = new QueryResult($value, $str);
                 $qr->setRows(count($value));
+
+                if (isset($totalRows)) {
+                    $qr->setTotalRows($totalRows);
+                }
+
+                if (isset($filteredRows)) {
+                    $qr->setFilteredRows($filteredRows);
+                }
+
                 return $qr;
             }
         }
@@ -488,12 +610,28 @@ class Database
             $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
             $qr = new QueryResult($rows, $str);
 
+            if (isset($totalRows)) {
+                $qr->setTotalRows($totalRows);
+            }
+
+            if (isset($filteredRows)) {
+                $qr->setFilteredRows($filteredRows);
+            }
+
             if (self::$cache and self::$cache->getDriver()->connected() and !self::$onTransaction) {
                 $hash = self::$cache->CacheKey($str, self::$dbn, "1", $params);
                 self::$cache->set($hash, $rows, $cacheTtl, true);
             }
         } else {
             $qr = new QueryResult(true, $str);
+
+            if (isset($totalRows)) {
+                $qr->setTotalRows($totalRows);
+            }
+
+            if (isset($filteredRows)) {
+                $qr->setFilteredRows($filteredRows);
+            }
 
             if (self::$cache and self::$cache->getDriver()->connected() and !self::$onTransaction) {
                 self::invalidateTableCache($str);

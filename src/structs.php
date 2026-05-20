@@ -74,4 +74,191 @@ interface IJob {
     public function handle(array $data);
 }
 
+class Result {
+    public function __construct(
+        public readonly bool $status,
+        public readonly ?string $erro = null,
+        public readonly ?string $msg = null,
+        public readonly ?array $values = null
+    ) {}
+
+    public static function ok(string $msg = '', array $values = []): self {
+        return new self(true, null, $msg, $values);
+    }
+
+    public static function fail(string $erro, string $msg = '', array $values = []): self {
+        return new self(false, $erro, $msg, $values);
+    }
+}
+
+enum FilterOperator: string {
+    case EQUALS = '=';
+    case LIKE = 'LIKE';
+}
+
+class Filter {
+    public readonly mixed $SearchFunc;
+
+    public function __construct(
+        public readonly ?int $limit = 0,
+        public readonly ?int $offset = 0,
+        public readonly ?string $search = '',
+        public readonly ?FilterOperator $searchOperator = null,
+        public readonly ?array $fieldsSearch = [],
+        callable|null $SearchFunc = null
+    ) {
+        $this->SearchFunc = $SearchFunc;
+    }
+
+    public function applySearchToQuery(string $sql, array $params = []): array {
+        $sqlAddit = '';
+        $sqlParams = [];
+
+        $hasSearch = !empty($this->search);
+        $hasFields = !empty($this->fieldsSearch);
+
+        if ($hasSearch && $hasFields) {
+            $operator = $this->searchOperator === FilterOperator::LIKE ? 'LIKE' : '=';
+
+            $conditions = array_map(
+                fn($field) => "{$field} {$operator} ?",
+                $this->fieldsSearch
+            );
+
+            $sqlAddit .= " AND (" . implode(" OR ", $conditions) . ")";
+
+            $search = $this->search;
+
+            if (is_callable($this->SearchFunc)) {
+                $search = ($this->SearchFunc)($search);
+            }
+
+            if ($this->searchOperator === FilterOperator::LIKE) {
+                $search = "%{$search}%";
+            }
+
+            foreach ($this->fieldsSearch as $_) {
+                $sqlParams[] = $search;
+            }
+        }
+
+        if ($sqlAddit !== '') {
+            $sql = $this->injectSqlAddit($sql, $sqlAddit);
+        }
+
+        return [
+            'sql' => $sql,
+            'params' => array_merge($params, $sqlParams),
+        ];
+    }
+
+    public function applyPaginationToQuery(string $sql, array $params = []): array {
+        if (($this->limit ?? 0) > 0) {
+            $sql .= " LIMIT ? OFFSET ?";
+            $params[] = (int)$this->limit;
+            $params[] = (int)($this->offset ?? 0);
+        }
+
+        return [
+            'sql' => $sql,
+            'params' => $params,
+        ];
+    }
+
+    public function applyToQuery(string $sql, array $params = []): array {
+        $sqlAddit = '';
+        $sqlParams = [];
+
+        $hasSearch = !empty($this->search);
+        $hasFields = !empty($this->fieldsSearch);
+
+        if ($hasSearch && $hasFields) {
+
+            $operator = $this->searchOperator == FilterOperator::LIKE ? 'LIKE' : '=';
+
+            $conditions = array_map(
+                fn($field) => "{$field} {$operator} ?",
+                $this->fieldsSearch
+            );
+
+            $sqlAddit .= " AND (" . implode(" OR ", $conditions) . ")";
+
+            $search = $this->search;
+
+            if (is_callable($this->SearchFunc)) {
+                $search = ($this->SearchFunc)($search);
+            }
+
+            if ($this->searchOperator === FilterOperator::LIKE) {
+                $search = "%{$search}%";
+            }
+
+            foreach ($this->fieldsSearch as $_) {
+                $sqlParams[] = $search;
+            }
+        }
+
+        // Só aplica LIMIT/OFFSET quando NÃO houver search
+        if (!$hasSearch && ($this->limit ?? 0) > 0) {
+            $sqlAddit .= " LIMIT ? OFFSET ?";
+            $sqlParams[] = (int)$this->limit;
+            $sqlParams[] = (int)($this->offset ?? 0);
+        }
+
+        if ($sqlAddit !== '') {
+            $sql = $this->injectSqlAddit($sql, $sqlAddit);
+        }
+
+        return [
+            'sql' => $sql,
+            'params' => array_merge($params, $sqlParams),
+        ];
+    }
+
+    private function injectSqlAddit(string $sql, string $sqlAddit): string {
+        $sql = trim($sql);
+
+        $hasWhere = preg_match('/\bWHERE\b/i', $sql);
+
+        if (!$hasWhere) {
+            $sqlAddit = preg_replace('/^\s*AND\s+/i', ' WHERE ', $sqlAddit);
+        }
+
+        if (preg_match('/\s+ORDER\s+BY\s+/i', $sql, $m, PREG_OFFSET_CAPTURE)) {
+            $pos = $m[0][1];
+
+            return substr($sql, 0, $pos)
+                . $sqlAddit . ' '
+                . substr($sql, $pos);
+        }
+
+        return $sql . $sqlAddit;
+    }
+
+    public function searchFilter(array $row, array $fields = []): bool {
+        if (empty($this->search)) {
+            return true;
+        }
+
+        $search = mb_strtolower($this->search);
+        $fieldMap = !empty($fields) ? array_flip($fields) : null;
+
+        foreach ($row as $field => $value) {
+            if ($fieldMap !== null && !isset($fieldMap[$field])) {
+                continue;
+            }
+
+            if ($value === null) {
+                continue;
+            }
+
+            if (str_contains(mb_strtolower((string)$value), $search)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+}
+
 ?>

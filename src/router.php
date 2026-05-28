@@ -25,7 +25,8 @@ final class Router {
         "baseDir"     => 'content',
         "popupDir"    => 'content/popup',
         "errorDir"    => 'content/errors',
-        "defaultPage" => 'home'
+        "defaultPage" => 'home',
+        "useSSR"      => false
     ];
 
     private static $isAjax   = false;
@@ -33,12 +34,18 @@ final class Router {
     private static $routeInfo = null;
     private static $rota      = [];
     private static ?ViewContext $viewContext = null;
+    private static $ssrContent = "";
 
     public static function isAjax()       { return self::$isAjax; }
     public static function isPartial()    { return self::$isPartial; }
     public static function getRouteInfo() { return self::$routeInfo; }
     public static function getRota()      { return self::$rota; }
     public static function getView()      { return self::$viewContext; }
+    public static function getSSRContent() { return self::$ssrContent; }
+
+    // public static function injectDependencies() {
+        
+    // }
 
     /**
      * Sanitiza nome de rota, bloqueando path traversal (LFI).
@@ -231,6 +238,12 @@ final class Router {
                 include self::$config['errorDir'] . '/404.php';
             }
             exit;
+        }
+
+        if (!self::$isAjax && !empty(self::$config['useSSR'])) {
+            ob_start();
+            self::Render();
+            self::$ssrContent = ob_get_clean();
         }
     }
 

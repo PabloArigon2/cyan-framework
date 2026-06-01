@@ -40,18 +40,19 @@ final class Permissions {
         return $result;
     }
 
-    public static function GetRoles(int $empresa = 0, int $id = 0, int|null $is_system = 1) {
+    public static function GetRoles(int $empresa = 0, int $id = 0, int|null $is_system = 1, Filter|null $filter = null, int &$totalRows = 0) {
         if (!empty($empresa) or !empty($id)) {
             $sql = Database::Query("SELECT * FROM roles WHERE (empresa_id <=> COALESCE(?, empresa_id) AND id <=> COALESCE(?, id)) AND is_system <=> COALESCE(?, is_system)", [
                 ($empresa == 0 ? null : $empresa), ($id == 0 ? null : $id), $is_system
-            ]);
+            ], filter: $filter);
         }
         else {
             $sql = Database::Query("SELECT * FROM roles WHERE is_system <=> COALESCE(?, is_system)", [
                 $is_system
-            ]);
+            ], filter: $filter);
         }
 
+        $totalRows = $sql->totalRows;
         return $sql->isValid() ? $sql->get() : null;
     }
 

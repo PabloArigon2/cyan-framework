@@ -25,8 +25,7 @@ final class Router {
         "baseDir"     => 'content',
         "popupDir"    => 'content/popup',
         "errorDir"    => 'content/errors',
-        "defaultPage" => 'home',
-        "useSSR"      => false
+        "defaultPage" => 'home'
     ];
 
     private static $isAjax   = false;
@@ -34,18 +33,12 @@ final class Router {
     private static $routeInfo = null;
     private static $rota      = [];
     private static ?ViewContext $viewContext = null;
-    private static $ssrContent = "";
 
     public static function isAjax()       { return self::$isAjax; }
     public static function isPartial()    { return self::$isPartial; }
     public static function getRouteInfo() { return self::$routeInfo; }
     public static function getRota()      { return self::$rota; }
     public static function getView()      { return self::$viewContext; }
-    public static function getSSRContent() { return self::$ssrContent; }
-
-    // public static function injectDependencies() {
-        
-    // }
 
     /**
      * Sanitiza nome de rota, bloqueando path traversal (LFI).
@@ -88,6 +81,8 @@ final class Router {
             $icon  = htmlspecialchars($data['icon']  ?? '', ENT_QUOTES, 'UTF-8');
             $title = htmlspecialchars($data['title'] ?? '', ENT_QUOTES, 'UTF-8');
             $url   = htmlspecialchars("{$moduleName}/{$key}", ENT_QUOTES, 'UTF-8');
+
+            if (($data['enabled'] ?? false) === false) continue;
 
             // Verifica se a page tem submenus
             if (!empty($data['submenus']) && is_array($data['submenus'])) {
@@ -239,15 +234,28 @@ final class Router {
             }
             exit;
         }
-
-        if (!self::$isAjax && !empty(self::$config['useSSR'])) {
-            ob_start();
-            self::Render();
-            self::$ssrContent = ob_get_clean();
-        }
     }
 
     public static function Render() {
+
+        // $file = self::$rota[0];
+
+        // // Popups — blindagem LFI: sanitizado acima, nenhum ".." ou "/" externo sobrevive
+        // if (str_starts_with($file, "popup-")) {
+        //     $route = str_replace('popup-', '', $file);
+        //     $arquivo_pagina = self::$config['popupDir'] . "/" . $route . ".php";
+
+        //     if (self::$isAjax) {
+        //         if (file_exists($arquivo_pagina)) {
+        //             include $arquivo_pagina;
+        //         } else {
+        //             http_response_code(404);
+        //             echo "Popup não encontrado.";
+        //         }
+        //         exit;
+        //     }
+        // }
+
         if (self::$routeInfo === null) {
             http_response_code(404);
             include self::$config['errorDir'] . "/404.php";
@@ -257,6 +265,12 @@ final class Router {
         if (isset(self::$routeInfo['status']) && self::$routeInfo['status'] === 403) {
             http_response_code(403);
             include self::$config['errorDir'] . "/403.php";
+            return;
+        }
+
+        if (isset(self::$routeInfo['status']) && self::$routeInfo['status'] !== HttpCode::OK) {
+            http_response_code(self::$routeInfo['status']);
+            include self::$config['errorDir']."/".self::$routeInfo['status'].".php";
             return;
         }
 
@@ -311,6 +325,13 @@ final class Router {
                     if (is_array($manifestJSON) && isset($manifestJSON['pages'])) {
                         // Verifica se é uma page direta OU um submenu de alguma page
                         $isAllowed = isset($manifestJSON['pages'][$subFileName]);
+
+                        if ($isAllowed) {
+                            $key = $manifestJSON['pages'][$subFileName];
+
+                            if (!isset($key['enabled']) or empty($key['enabled']) or $key['enabled'] == false)
+                                return [ 'status' => HttpCode::NOT_IMPLEMENTED, 'info' => [] ];
+                        }
                         
                         if (!$isAllowed) {
                             foreach ($manifestJSON['pages'] as $pageData) {
@@ -341,7 +362,16 @@ final class Router {
                     $manifestJSON = json_decode(file_get_contents($manifestPath), true);
 
                     if (is_array($manifestJSON) && isset($manifestJSON['pages']) && count($manifestJSON['pages']) > 0) {
-                        $firstKey = array_keys($manifestJSON['pages'])[0];
+                        // $firstKey = array_keys($manifestJSON['pages'])[0];
+                        $firstKey = null;
+
+                        foreach($manifestJSON['pages'] as $page) {
+                            if (($page['enabled'] ?? false) === true) {
+                                $firstKey = $page;
+                                break;
+                            }
+                        }
+
                         $result['info']['is_nested']   = true;
                         $result['info']['child_path']   = $moduleDir . "/" . $firstKey . ".php";
                         $result['info']['child_name']   = $firstKey;

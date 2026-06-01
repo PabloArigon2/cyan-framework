@@ -99,6 +99,30 @@ enum FilterOperator: string {
 class Filter {
     public readonly mixed $SearchFunc;
 
+    public function CompareTo(array|string $value) {
+        if (is_array($value)) {
+            if (!empty($this->search)) {
+                $contains = false;
+
+                foreach($value as $v) {
+                    if (str_contains(strtolower($v), strtolower($this->search))) {
+                        $contains = true;
+                        break;
+                    }
+                }
+
+                return $contains;
+            }
+        }
+        else if (is_string($value)) {
+            if (!empty($this->search) && !str_contains(strtolower($value), strtolower($this->search))) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     public function __construct(
         public readonly ?int $limit = 0,
         public readonly ?int $offset = 0,
@@ -108,6 +132,10 @@ class Filter {
         callable|null $SearchFunc = null
     ) {
         $this->SearchFunc = $SearchFunc;
+    }
+
+    public function hasSearch(): bool {
+        return (!empty($this->search));
     }
 
     public function applySearchToQuery(string $sql, array $params = []): array {
